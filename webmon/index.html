@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webmon - SE2026</title>
+    <!-- Fonts: Outfit for heading, Inter for content -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="dark-theme">
+    
+    <!-- Background Removed -->
+
+    <!-- Syncing Records Loader -->
+    <div id="loader" class="loader-container">
+        <div class="loader-box glass-panel">
+            <div class="mac-dots">
+                <span class="dot red"></span>
+                <span class="dot yellow"></span>
+                <span class="dot green"></span>
+            </div>
+            <div class="spinner-wrapper">
+                <div class="spinner"></div>
+            </div>
+            <h3>Webmon SE2026</h3>
+            <p>Syncing field data records...</p>
+        </div>
+    </div>
+
+    <!-- Main macOS Window Application Container -->
+    <div class="app-window" id="app-content" style="display: none;">
+        
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="mac-dots">
+                    <span class="dot red"></span>
+                    <span class="dot yellow"></span>
+                    <span class="dot green"></span>
+                </div>
+                <div class="brand">
+                    <i class="ri-radar-fill"></i>
+                    <h2>Webmon SE2026</h2>
+                </div>
+            </div>
+
+            <div class="search-box glass-panel-inner" style="width: 100%; margin-bottom: 20px;">
+                <i class="ri-search-2-line"></i>
+                <input type="text" id="global-search" placeholder="Search data...">
+            </div>
+            
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-target="dashboard">
+                    <i class="ri-macbook-line"></i>
+                    <span>Overview</span>
+                </a>
+                <a href="#" class="nav-item" data-target="korwil">
+                    <i class="ri-team-line"></i>
+                    <span>Koordinator & PML</span>
+                </a>
+                <a href="#" class="nav-item" data-target="hierarchy">
+                    <i class="ri-node-tree"></i>
+                    <span>Hierarchy Monitor</span>
+                </a>
+                <a href="#" class="nav-item" data-target="petugas">
+                    <i class="ri-user-smile-line"></i>
+                    <span>Petugas (PCL)</span>
+                </a>
+                <a href="#" class="nav-item" data-target="sls">
+                    <i class="ri-map-pin-5-line"></i>
+                    <span>Wilayah (SLS)</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="sync-info">
+                    <span class="sync-label"><i class="ri-history-line"></i> LAST SYNC</span>
+                    <div id="last-sync" class="sync-time">-</div>
+                </div>
+                <button id="btn-refresh" class="btn-refresh btn-glow">
+                    <i class="ri-refresh-line"></i> Sync Gsheet
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Workspace Area -->
+        <main class="main-workspace">
+            <!-- Scrollable Workspace Panels -->
+            <div class="workspace-scrollable">
+                
+                <!-- Overview / Dashboard Panel -->
+                <section id="view-dashboard" class="view-section active">
+                    <div class="section-title-block">
+                        <h1>Field Performance Summary</h1>
+                        <p>Statistical progress of SE2026 field work.</p>
+                    </div>
+
+                    <!-- KPI grid including specific status cards -->
+                    <div class="kpi-grid">
+                        
+                        <!-- Assignment Tersubmit -->
+                        <div class="kpi-card total-card glass-panel-inner" style="grid-column: span 1;">
+                            <div class="kpi-card-header">
+                                <span class="label">Assignment Tersubmit</span>
+                                <div class="kpi-icon"><i class="ri-slideshow-3-line"></i></div>
+                            </div>
+                            <div class="kpi-card-body">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                                    <div>
+                                        <h2 id="kpi-assignment">0</h2>
+                                        <p class="kpi-sub-desc">Persentase assignment yang berstatus selain OPEN dan DRAFT</p>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <h2 id="kpi-completion-percentage" style="color: #10b981; font-size: 32px; text-shadow: 0 0 10px rgba(16,185,129,0.3);">0%</h2>
+                                        <p class="kpi-sub-desc">Overall Completion</p>
+                                    </div>
+                                </div>
+                                <div class="progress-bar-thin" style="height: 6px; margin-top: 16px; background: rgba(255,255,255,0.05); border-radius: 6px;">
+                                    <div id="kpi-progress-fill" class="progress-fill-thin" style="background: linear-gradient(90deg, #3b82f6, #10b981); width: 0%; border-radius: 6px;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Status Distribution Horizontal Bar -->
+                        <div class="kpi-card total-card glass-panel-inner" style="grid-column: span 1;">
+                            <div class="kpi-card-header">
+                                <span class="label">Status Distribution</span>
+                                <div class="kpi-icon"><i class="ri-bar-chart-horizontal-line"></i></div>
+                            </div>
+                            <div class="kpi-card-body" style="justify-content: center; display: flex; flex-direction: column;">
+                                <div class="stacked-bar-container">
+                                    <div class="stacked-segment segment-approved" id="bar-approved" style="width: 0%;" title="Approved"></div>
+                                    <div class="stacked-segment segment-submitted" id="bar-submitted" style="width: 0%;" title="Submitted"></div>
+                                    <div class="stacked-segment segment-open" id="bar-open" style="width: 0%;" title="Open"></div>
+                                    <div class="stacked-segment segment-draft" id="bar-draft" style="width: 0%;" title="Draft"></div>
+                                    <div class="stacked-segment segment-rejected" id="bar-rejected" style="width: 0%;" title="Rejected"></div>
+                                    <div class="stacked-segment segment-revoked" id="bar-revoked" style="width: 0%;" title="Revoked"></div>
+                                </div>
+                                <div class="stacked-bar-legend">
+                                    <div class="legend-item"><span class="legend-dot" style="background: var(--color-approved)"></span>Approved</div>
+                                    <div class="legend-item"><span class="legend-dot" style="background: var(--color-submitted)"></span>Submitted</div>
+                                    <div class="legend-item"><span class="legend-dot" style="background: var(--color-open)"></span>Open</div>
+                                    <div class="legend-item"><span class="legend-dot" style="background: var(--color-draft)"></span>Draft</div>
+                                    <div class="legend-item"><span class="legend-dot" style="background: var(--color-rejected)"></span>Rejected</div>
+                                    <div class="legend-item"><span class="legend-dot" style="background: var(--color-revoked)"></span>Revoked</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="kpi-grid-status">
+                        <!-- OPEN Card -->
+                        <div class="kpi-card status-card status-open glass-panel-inner">
+                            <div class="kpi-card-header">
+                                <span class="label">OPEN</span>
+                                <span class="indicator-dot"></span>
+                            </div>
+                            <div class="kpi-card-body">
+                                <h3 id="kpi-open">0</h3>
+                                <p class="kpi-sub-desc">Not yet started</p>
+                            </div>
+                        </div>
+
+                        <!-- DRAFT Card -->
+                        <div class="kpi-card status-card status-draft glass-panel-inner">
+                            <div class="kpi-card-header">
+                                <span class="label">DRAFT</span>
+                                <span class="indicator-dot"></span>
+                            </div>
+                            <div class="kpi-card-body">
+                                <h3 id="kpi-draft">0</h3>
+                                <p class="kpi-sub-desc">Saved locally</p>
+                            </div>
+                        </div>
+
+                        <!-- SUBMITTED BY PENCACAH Card -->
+                        <div class="kpi-card status-card status-submitted glass-panel-inner">
+                            <div class="kpi-card-header">
+                                <span class="label">SUBMITTED</span>
+                                <span class="indicator-dot"></span>
+                            </div>
+                            <div class="kpi-card-body">
+                                <h3 id="kpi-submitted">0</h3>
+                                <p class="kpi-sub-desc">Awaiting validation</p>
+                            </div>
+                        </div>
+
+                        <!-- APPROVED BY PENGAWAS Card -->
+                        <div class="kpi-card status-card status-approved glass-panel-inner">
+                            <div class="kpi-card-header">
+                                <span class="label">APPROVED</span>
+                                <span class="indicator-dot"></span>
+                            </div>
+                            <div class="kpi-card-body">
+                                <h3 id="kpi-approved">0</h3>
+                                <p class="kpi-sub-desc">Verified successfully</p>
+                            </div>
+                        </div>
+
+                        <!-- REJECTED BY PENGAWAS Card -->
+                        <div class="kpi-card status-card status-rejected glass-panel-inner">
+                            <div class="kpi-card-header">
+                                <span class="label">REJECTED</span>
+                                <span class="indicator-dot"></span>
+                            </div>
+                            <div class="kpi-card-body">
+                                <h3 id="kpi-rejected">0</h3>
+                                <p class="kpi-sub-desc">Needs revision</p>
+                            </div>
+                        </div>
+
+                        <!-- REVOKED BY PENGAWAS Card -->
+                        <div class="kpi-card status-card status-revoked glass-panel-inner">
+                            <div class="kpi-card-header">
+                                <span class="label">REVOKED</span>
+                                <span class="indicator-dot"></span>
+                            </div>
+                            <div class="kpi-card-body">
+                                <h3 id="kpi-revoked">0</h3>
+                                <p class="kpi-sub-desc">Pulled back by Koseka</p>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Charts Visualization Row -->
+                    <div class="charts-row">
+                        <div class="chart-box glass-panel-inner" style="flex: 1;">
+                            <div class="chart-header">
+                                <h3><i class="ri-bar-chart-grouped-line"></i> Top Performers (Approved Count)</h3>
+                            </div>
+                            <div class="chart-body">
+                                <canvas id="topPetugasChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Korwil List Panel -->
+                <section id="view-korwil" class="view-section">
+                    <div class="section-title-block">
+                        <h1>Koordinator & PML Overview</h1>
+                        <p>Hierarchical progress tracking by Subdistrict Coordinator and PML.</p>
+                    </div>
+                    
+                    <div class="table-container glass-panel-inner">
+                        <div class="table-header">
+                            <h3><i class="ri-team-line"></i> Supervisor Hierarchy Progress</h3>
+                        </div>
+                        <div class="table-wrapper">
+                            <table id="table-korwil" class="premium-table">
+                                <thead>
+                                    <tr>
+                                        <th>Koseka (Koordinator Kecamatan)</th>
+                                        <th>PML (Pengawas)</th>
+                                        <th>PCL Active</th>
+                                        <th>SLS Assigned</th>
+                                        <th>Target Dokumen</th>
+                                        <th>Open</th>
+                                        <th>Draft</th>
+                                        <th>Submitted</th>
+                                        <th>Approved</th>
+                                        <th>Progress Ratio</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Dynamic content populates here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Petugas List Panel -->
+                <section id="view-petugas" class="view-section">
+                    <div class="section-title-block">
+                        <h1>Petugas Overview</h1>
+                        <p>Track progress and validation performance per officer. Click a row to see detailed SLS breakdown.</p>
+                    </div>
+                    
+                    <div class="table-container glass-panel-inner">
+                        <div class="table-header">
+                            <h3><i class="ri-user-line"></i> Officer Progress Table</h3>
+                        </div>
+                        <div class="table-wrapper">
+                            <table id="table-petugas" class="premium-table">
+                                <thead>
+                                    <tr>
+                                        <th>Nama Petugas</th>
+                                        <th>Email</th>
+                                        <th>PML</th>
+                                        <th>Koseka</th>
+                                        <th>Target</th>
+                                        <th>Open</th>
+                                        <th>Draft</th>
+                                        <th>Submitted</th>
+                                        <th>Approved</th>
+                                        <th>Rejected</th>
+                                        <th>Revoked</th>
+                                        <th>Progress %</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Dynamic content populates here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SLS List Panel -->
+                <section id="view-sls" class="view-section">
+                    <div class="section-title-block">
+                        <h1>Wilayah Kerja (SLS)</h1>
+                        <p>Granular breakdown of SLS status and administrative hierarchy.</p>
+                    </div>
+
+                    <!-- Filter Bar -->
+                    <div class="filter-bar glass-panel-inner">
+                        <div class="filter-item">
+                            <label for="filter-kecamatan">Kecamatan</label>
+                            <select id="filter-kecamatan" class="glass-select">
+                                <option value="">Semua Kecamatan</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="filter-desa">Desa/Kelurahan</label>
+                            <select id="filter-desa" class="glass-select">
+                                <option value="">Semua Desa</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="filter-status">Status SLS</label>
+                            <select id="filter-status" class="glass-select">
+                                <option value="">Semua Status</option>
+                                <option value="APPROVED">APPROVED (Selesai)</option>
+                                <option value="PROGRESS">IN PROGRESS (Sedang Jalan)</option>
+                                <option value="OPEN">OPEN (Belum Mulai)</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="filter-pml">PML</label>
+                            <select id="filter-pml" class="glass-select">
+                                <option value="">Semua PML</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="filter-koseka">Koseka</label>
+                            <select id="filter-koseka" class="glass-select">
+                                <option value="">Semua Koseka</option>
+                            </select>
+                        </div>
+                        <button id="btn-reset-filters" class="btn-reset"><i class="ri-refresh-line"></i> Reset</button>
+                    </div>
+
+                    <div class="table-container glass-panel-inner" style="margin-top: 16px;">
+                        <div class="table-header">
+                            <h3><i class="ri-map-2-line"></i> SLS Assignments Status</h3>
+                        </div>
+                        <div class="table-wrapper">
+                            <table id="table-sls" class="premium-table">
+                                <thead>
+                                    <tr>
+                                        <th>Kode SLS</th>
+                                        <th>Nama SLS</th>
+                                        <th>Ketua RT</th>
+                                        <th>Desa</th>
+                                        <th>Kecamatan</th>
+                                        <th>Petugas (PCL)</th>
+                                        <th>PML</th>
+                                        <th>Koseka</th>
+                                        <th>Target</th>
+                                        <th>Open</th>
+                                        <th>Draft</th>
+                                        <th>Submitted</th>
+                                        <th>Approved</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Dynamic content populates here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Hierarchy Monitor View -->
+                <section id="view-hierarchy" class="view-section">
+                    <div class="section-title-block">
+                        <h1>Sonoma Hierarchy Explorer</h1>
+                        <p>Lacak progres dan hambatan pendataan secara hierarkis (Koseka ➔ PML ➔ PCL) secara interaktif.</p>
+                    </div>
+                    
+                    <div class="hierarchy-container">
+                        <!-- Column 1: Koseka -->
+                        <div class="hierarchy-column" id="col-koseka">
+                            <div class="column-header">
+                                <span><i class="ri-government-line"></i> Koordinator Kecamatan</span>
+                                <span class="badge-count" id="count-koseka">0</span>
+                            </div>
+                            <div class="column-content" id="list-koseka">
+                                <!-- Dynamic Koseka list -->
+                            </div>
+                        </div>
+
+                        <!-- Column 2: PML -->
+                        <div class="hierarchy-column" id="col-pml">
+                            <div class="column-header">
+                                <span><i class="ri-user-star-line"></i> Pengawas (PML)</span>
+                                <span class="badge-count" id="count-pml">0</span>
+                            </div>
+                            <div class="column-content" id="list-pml">
+                                <div class="empty-column-state">
+                                    <i class="ri-arrow-left-line"></i>
+                                    <p>Pilih Koseka terlebih dahulu</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Column 3: PCL -->
+                        <div class="hierarchy-column" id="col-pcl">
+                            <div class="column-header">
+                                <span><i class="ri-user-smile-line"></i> Petugas (PCL)</span>
+                                <span class="badge-count" id="count-pcl">0</span>
+                            </div>
+                            <div class="column-content" id="list-pcl">
+                                <div class="empty-column-state">
+                                    <i class="ri-arrow-left-line"></i>
+                                    <p>Pilih PML terlebih dahulu</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Panel Detail: PCL detail & heatmap -->
+                        <div class="hierarchy-detail" id="panel-detail-pcl">
+                            <div class="column-header">
+                                <span><i class="ri-file-chart-line"></i> Detail Kinerja & SLS</span>
+                            </div>
+                            <div class="detail-content" id="detail-pcl-body">
+                                <div class="empty-column-state">
+                                    <i class="ri-information-line"></i>
+                                    <p>Pilih PCL untuk melihat detail kinerja</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Drill-down Modal Detail Petugas -->
+    <div id="petugas-modal" class="modal-container" style="display: none;">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <div>
+                    <h2 id="modal-petugas-name">Detail Progres Petugas</h2>
+                    <span id="modal-petugas-email" style="font-size: 11px; color: var(--text-muted);">email@petugas.com</span>
+                </div>
+                <button id="modal-close-btn" class="modal-close"><i class="ri-close-line"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-meta-grid">
+                    <div class="modal-meta-card glass-panel-inner">
+                        <span class="meta-label">Koordinator (Koseka)</span>
+                        <strong id="modal-petugas-koseka">-</strong>
+                    </div>
+                    <div class="modal-meta-card glass-panel-inner">
+                        <span class="meta-label">PML (Pengawas)</span>
+                        <strong id="modal-petugas-pml">-</strong>
+                    </div>
+                    <div class="modal-meta-card glass-panel-inner">
+                        <span class="meta-label">Total Target Dokumen</span>
+                        <strong id="modal-petugas-target">-</strong>
+                    </div>
+                </div>
+                
+                <div class="table-container modal-table-container glass-panel-inner" style="margin-top: 20px; padding: 15px;">
+                    <div class="table-header">
+                        <h3><i class="ri-map-pin-line"></i> SLS List & Document Status</h3>
+                    </div>
+                    <div class="table-wrapper" style="max-height: 400px; overflow-y: auto;">
+                        <table id="table-modal-sls" class="premium-table">
+                            <thead>
+                                <tr>
+                                    <th>Kode SLS</th>
+                                    <th>Nama SLS</th>
+                                    <th>Desa</th>
+                                    <th>Kecamatan</th>
+                                    <th>Target</th>
+                                    <th>Open</th>
+                                    <th>Draft</th>
+                                    <th>Submitted</th>
+                                    <th>Approved</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Dynamic content -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom JS script -->
+    <script src="js/app.js?v=7"></script>
+</body>
+</html>
