@@ -1,0 +1,12 @@
+[build]
+  # Direktori yang akan di-publish oleh Netlify
+  publish = "webmon"
+  
+  # Kosongkan karena kita tidak menggunakan framework (HTML statis murni)
+  command = ""
+
+[[redirects]]
+  # Mengatasi masalah routing 404 pada SPA (jika diperlukan di masa depan)
+  from = "/*"
+  to = "/index.html"
+  status = 200
