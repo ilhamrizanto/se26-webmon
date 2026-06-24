@@ -27,6 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setupSearch();
     setupFilters();
     setupModal();
+    setupSorts();
     
     document.getElementById('btn-refresh').addEventListener('click', () => {
         elAppContent.style.display = 'none';
@@ -298,8 +299,9 @@ function processAllData() {
     });
 }
 
-let statusChartInst = null;
-let topPetugasChartInst = null;
+let statusDistributionChartInst = null;
+let sortPetugasDesc = true;
+let sortKecamatanDesc = true;
 
 function updateDashboard() {
     let globalTarget = 0;
@@ -318,12 +320,12 @@ function updateDashboard() {
 
     // Populate overview numbers with animation
     animateValue("kpi-assignment", 0, globalTarget, 1000);
-    animateValue("kpi-open", 0, gOpen, 1000);
-    animateValue("kpi-draft", 0, gDraft, 1000);
-    animateValue("kpi-submitted", 0, gSub, 1000);
-    animateValue("kpi-approved", 0, gApp, 1000);
-    animateValue("kpi-rejected", 0, gRej, 1000);
-    animateValue("kpi-revoked", 0, gRev, 1000);
+    animateValue("kpi-open", 0, gOpen, 1000, ` <span style="font-size: 14px; color: rgba(255,255,255,0.5);">(${globalTarget > 0 ? ((gOpen/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+    animateValue("kpi-draft", 0, gDraft, 1000, ` <span style="font-size: 14px; color: rgba(255,255,255,0.5);">(${globalTarget > 0 ? ((gDraft/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+    animateValue("kpi-submitted", 0, gSub, 1000, ` <span style="font-size: 14px; color: rgba(255,255,255,0.5);">(${globalTarget > 0 ? ((gSub/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+    animateValue("kpi-rejected", 0, gRej, 1000, ` <span style="font-size: 14px; color: rgba(255,255,255,0.5);">(${globalTarget > 0 ? ((gRej/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+    animateValue("kpi-revoked", 0, gRev, 1000, ` <span style="font-size: 14px; color: rgba(255,255,255,0.5);">(${globalTarget > 0 ? ((gRev/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+    animateValue("kpi-approved", 0, gApp, 1000, ` <span style="font-size: 14px; color: rgba(255,255,255,0.5);">(${globalTarget > 0 ? ((gApp/globalTarget)*100).toFixed(1) : 0}%)</span>`);
 
     // Calculate and animate Assignment Tersubmit percentage (excluding Open & Draft)
     const tersubmitCount = globalTarget - gOpen - gDraft;
@@ -341,53 +343,123 @@ function updateDashboard() {
     Chart.defaults.color = '#a1a1aa';
     Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Inter', sans-serif";
 
-    // Update Horizontal Stacked Bar Chart
-    if (globalTarget > 0) {
-        document.getElementById('bar-approved').style.width = ((gApp / globalTarget) * 100) + '%';
-        document.getElementById('bar-submitted').style.width = ((gSub / globalTarget) * 100) + '%';
-        document.getElementById('bar-open').style.width = ((gOpen / globalTarget) * 100) + '%';
-        document.getElementById('bar-draft').style.width = ((gDraft / globalTarget) * 100) + '%';
-        document.getElementById('bar-rejected').style.width = ((gRej / globalTarget) * 100) + '%';
-        document.getElementById('bar-revoked').style.width = ((gRev / globalTarget) * 100) + '%';
-    } else {
-        document.querySelectorAll('.stacked-segment').forEach(el => el.style.width = '0%');
+    // Update Horizontal Stacked Bar Chart with Chart.js
+    const ctxStatus = document.getElementById('statusDistributionChart');
+    if (ctxStatus) {
+        if (statusDistributionChartInst) statusDistributionChartInst.destroy();
+        
+        statusDistributionChartInst = new Chart(ctxStatus, {
+            type: 'bar',
+            data: {
+                labels: ['Status Distribution'],
+                datasets: [
+                    { label: 'Open', data: [gOpen], backgroundColor: '#ffffffd4', barPercentage: 0.8 },
+                    { label: 'Draft', data: [gDraft], backgroundColor: '#ff92fd', barPercentage: 0.8 },
+                    { label: 'Submitted', data: [gSub], backgroundColor: '#52d4ff', barPercentage: 0.8 },
+                    { label: 'Rejected', data: [gRej], backgroundColor: '#ef4444', barPercentage: 0.8 },
+                    { label: 'Revoked', data: [gRev], backgroundColor: '#ffd153', barPercentage: 0.8 },
+                    { label: 'Approved', data: [gApp], backgroundColor: '#10b981', barPercentage: 0.8 }
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: true, display: false },
+                    y: { stacked: true, display: false }
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: '#e4e4e7', usePointStyle: true, boxWidth: 6, font: { size: 9 }, padding: 10 }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const val = context.raw;
+                                const pct = globalTarget > 0 ? ((val / globalTarget) * 100).toFixed(1) : 0;
+                                return `${context.dataset.label}: ${val} (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 
-    // Bar Chart top performers (Approved)
-    const petugasArray = Object.values(petugasData);
-    petugasArray.sort((a, b) => b.approved - a.approved);
-    const top5 = petugasArray.slice(0, 5);
+    // Render List Progres Petugas & Kecamatan
+    renderProgresPetugasList();
+    renderProgresKecamatanList();
+}
 
-    const ctxTop = document.getElementById('topPetugasChart').getContext('2d');
-    if (topPetugasChartInst) topPetugasChartInst.destroy();
-    
-    topPetugasChartInst = new Chart(ctxTop, {
-        type: 'bar',
-        data: {
-            labels: top5.map(p => p.namaLengkap.length > 15 ? p.namaLengkap.slice(0,13) + '..' : p.namaLengkap),
-            datasets: [
-                {
-                    label: 'Approved',
-                    data: top5.map(p => p.approved),
-                    backgroundColor: '#10b981',
-                    borderRadius: 4
-                },
-                {
-                    label: 'Remaining (Open/Draft/Sub)',
-                    data: top5.map(p => p.open + p.draft + p.submitted),
-                    backgroundColor: '#0284c7',
-                    borderRadius: 4
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' } },
-                y: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' } }
-            }
-        }
+function renderProgresPetugasList() {
+    const listContainer = document.getElementById('list-progres-petugas');
+    if (!listContainer) return;
+    listContainer.innerHTML = '';
+
+    const pList = Object.values(petugasData).map(p => {
+        const tersubmit = p.totalTarget - p.open - p.draft;
+        const pct = p.totalTarget > 0 ? ((tersubmit / p.totalTarget) * 100).toFixed(1) : 0;
+        return { ...p, tersubmit, pct };
+    });
+
+    pList.sort((a, b) => sortPetugasDesc ? b.tersubmit - a.tersubmit : a.tersubmit - b.tersubmit);
+
+    pList.forEach(p => {
+        const item = document.createElement('div');
+        item.className = 'hierarchy-card glass-panel-inner';
+        item.style.cursor = 'default';
+        
+        item.innerHTML = `
+            <div class="hierarchy-card-header">
+                <span class="hierarchy-card-title" title="${p.namaLengkap}">${p.namaLengkap}</span>
+                <span class="hierarchy-card-value" style="color: var(--accent-emerald);">${p.tersubmit} <span style="font-size: 10px; font-weight: normal; color: var(--text-muted);">/ ${p.totalTarget}</span></span>
+            </div>
+            <div class="hierarchy-card-meta">
+                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70%;">${p.koseka}</span>
+                <span style="font-weight: 600;">${p.pct}%</span>
+            </div>
+            <div style="height: 4px; border-radius: 2px; background: rgba(255,255,255,0.05); margin-top: 8px; overflow: hidden;">
+                <div style="height: 100%; border-radius: 2px; width: ${p.pct}%; background: linear-gradient(90deg, #8b5cf6, #3b82f6);"></div>
+            </div>
+        `;
+        listContainer.appendChild(item);
+    });
+}
+
+function renderProgresKecamatanList() {
+    const listContainer = document.getElementById('list-progres-kecamatan');
+    if (!listContainer) return;
+    listContainer.innerHTML = '';
+
+    const kList = Object.values(kecamatanData).map(k => {
+        const tersubmit = k.totalTarget - k.open - k.draft;
+        const pct = k.totalTarget > 0 ? ((tersubmit / k.totalTarget) * 100).toFixed(1) : 0;
+        return { ...k, tersubmit, pct };
+    });
+
+    kList.sort((a, b) => sortKecamatanDesc ? b.tersubmit - a.tersubmit : a.tersubmit - b.tersubmit);
+
+    kList.forEach(k => {
+        const item = document.createElement('div');
+        item.className = 'hierarchy-card glass-panel-inner';
+        item.style.cursor = 'default';
+        
+        item.innerHTML = `
+            <div class="hierarchy-card-header">
+                <span class="hierarchy-card-title" title="${k.kecamatan}">${k.kecamatan}</span>
+                <span class="hierarchy-card-value" style="color: var(--accent-emerald);">${k.tersubmit} <span style="font-size: 10px; font-weight: normal; color: var(--text-muted);">/ ${k.totalTarget}</span></span>
+            </div>
+            <div class="hierarchy-card-meta">
+                <span>${k.slsCount} SLS</span>
+                <span style="font-weight: 600;">${k.pct}%</span>
+            </div>
+            <div style="height: 4px; border-radius: 2px; background: rgba(255,255,255,0.05); margin-top: 8px; overflow: hidden;">
+                <div style="height: 100%; border-radius: 2px; width: ${k.pct}%; background: linear-gradient(90deg, #8b5cf6, #3b82f6);"></div>
+            </div>
+        `;
+        listContainer.appendChild(item);
     });
 }
 
@@ -418,6 +490,8 @@ function renderKorwilTable() {
             <td><span class="badge-dot open"></span> ${item.open}</td>
             <td><span class="badge-dot draft"></span> ${item.draft}</td>
             <td><span class="badge-dot submitted"></span> ${item.submitted}</td>
+            <td><span class="badge-dot rejected"></span> ${item.rejected || 0}</td>
+            <td><span class="badge-dot revoked"></span> ${item.revoked || 0}</td>
             <td><span class="badge-dot approved"></span> ${item.approved}</td>
             <td>
                 <div style="display:flex; align-items:center; gap:8px;">
@@ -449,9 +523,9 @@ function renderPetugasTable() {
             <td><span class="badge-dot open"></span> ${p.open}</td>
             <td><span class="badge-dot draft"></span> ${p.draft}</td>
             <td><span class="badge-dot submitted"></span> ${p.submitted}</td>
-            <td><span class="badge-dot approved"></span> ${p.approved}</td>
             <td><span class="badge-dot rejected"></span> ${p.rejected}</td>
             <td><span class="badge-dot revoked"></span> ${p.revoked}</td>
+            <td><span class="badge-dot approved"></span> ${p.approved}</td>
             <td>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <div class="progress-bar-thin" style="width:60px; margin:0;"><div class="progress-fill-thin" style="background:var(--accent-emerald); width:${pct}%"></div></div>
@@ -601,17 +675,39 @@ function setupFilters() {
 
 function setupModal() {
     const modal = document.getElementById('petugas-modal');
-    const closeBtn = document.getElementById('modal-close-btn');
-    
-    closeBtn.addEventListener('click', () => {
-        modal.style.display = 'none';
-    });
+    const btnClose = document.getElementById('close-modal');
+
+    if (btnClose) {
+        btnClose.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+    }
 
     window.addEventListener('click', (e) => {
         if (e.target === modal) {
             modal.style.display = 'none';
         }
     });
+}
+
+function setupSorts() {
+    const btnSortPetugas = document.getElementById('btn-sort-petugas');
+    if (btnSortPetugas) {
+        btnSortPetugas.addEventListener('click', () => {
+            sortPetugasDesc = !sortPetugasDesc;
+            btnSortPetugas.innerHTML = sortPetugasDesc ? '<i class="ri-sort-desc"></i> Sort' : '<i class="ri-sort-asc"></i> Sort';
+            renderProgresPetugasList();
+        });
+    }
+
+    const btnSortKecamatan = document.getElementById('btn-sort-kecamatan');
+    if (btnSortKecamatan) {
+        btnSortKecamatan.addEventListener('click', () => {
+            sortKecamatanDesc = !sortKecamatanDesc;
+            btnSortKecamatan.innerHTML = sortKecamatanDesc ? '<i class="ri-sort-desc"></i> Sort' : '<i class="ri-sort-asc"></i> Sort';
+            renderProgresKecamatanList();
+        });
+    }
 }
 
 function showPetugasModal(email) {
@@ -690,11 +786,11 @@ function setupSearch() {
 }
 
 // Utility: Number Animation
-function animateValue(id, start, end, duration) {
+function animateValue(id, start, end, duration, suffix = "") {
     let obj = document.getElementById(id);
     if (!obj) return;
     if (start === end) {
-        obj.innerHTML = end.toLocaleString('id-ID');
+        obj.innerHTML = end.toLocaleString('id-ID') + suffix;
         return;
     }
     
@@ -706,12 +802,12 @@ function animateValue(id, start, end, duration) {
         let easeOut = 1 - Math.pow(1 - progress, 3);
         let current = Math.floor(easeOut * (end - start) + start);
         
-        obj.innerHTML = current.toLocaleString('id-ID');
+        obj.innerHTML = current.toLocaleString('id-ID') + suffix;
         
         if (progress < 1) {
             window.requestAnimationFrame(step);
         } else {
-            obj.innerHTML = end.toLocaleString('id-ID');
+            obj.innerHTML = end.toLocaleString('id-ID') + suffix;
         }
     }
     window.requestAnimationFrame(step);
