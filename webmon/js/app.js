@@ -3,6 +3,7 @@ const SHEET_DB_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/g
 const SHEET_NAMA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Nama`;
 const SHEET_SLS_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=SLS`;
 const SHEET_KORWIL_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Korwil`;
+const SHEET_TIME_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Time`;
 
 // Global Data State
 let rawDataDB = [];
@@ -53,6 +54,25 @@ function fetchCSV(url) {
     });
 }
 
+function fetchTime(url) {
+    return new Promise((resolve) => {
+        Papa.parse(url, {
+            download: true,
+            header: false,
+            complete: function(results) {
+                if (results.data && results.data.length > 0 && results.data[0].length > 0) {
+                    resolve(results.data[0][0]);
+                } else {
+                    resolve(new Date().toLocaleString('id-ID'));
+                }
+            },
+            error: function(err) {
+                resolve(new Date().toLocaleString('id-ID'));
+            }
+        });
+    });
+}
+
 function cleanName(name) {
     if (!name) return "";
     return String(name).toLowerCase()
@@ -68,8 +88,9 @@ function initApp() {
         fetchCSV(SHEET_DB_URL),
         fetchCSV(SHEET_NAMA_URL),
         fetchCSV(SHEET_SLS_URL),
-        fetchCSV(SHEET_KORWIL_URL)
-    ]).then(([dbData, namaData, slsDataRaw, korwilData]) => {
+        fetchCSV(SHEET_KORWIL_URL),
+        fetchTime(SHEET_TIME_URL)
+    ]).then(([dbData, namaData, slsDataRaw, korwilData, timeStr]) => {
         rawDataDB = dbData;
         rawNamaData = namaData;
         rawSlsData = slsDataRaw;
@@ -86,7 +107,7 @@ function initApp() {
         // Hide loader, show app
         elLoader.style.display = 'none';
         elAppContent.style.display = 'flex';
-        elLastSync.innerText = new Date().toLocaleString('id-ID');
+        elLastSync.innerText = timeStr;
     }).catch(err => {
         console.error("Error loading data:", err);
         elLoader.innerHTML = `
@@ -467,25 +488,50 @@ function renderKorwilTable() {
     const tbody = document.querySelector('#table-korwil tbody');
     tbody.innerHTML = '';
 
-    // Sort Koseka, then PML
-    const rows = [];
-    for (const pmlKey in pmlData) {
-        rows.push(pmlData[pmlKey]);
-    }
-    rows.sort((a, b) => {
+    // Get all PCLs and sort by Koorkec -> PML -> Nama Petugas
+    let pList = Object.values(petugasData).filter(p => p.koseka && p.pml);
+    pList.sort((a, b) => {
         if (a.koseka !== b.koseka) return a.koseka.localeCompare(b.koseka);
-        return a.pml.localeCompare(b.pml);
+        if (a.pml !== b.pml) return a.pml.localeCompare(b.pml);
+        return a.namaLengkap.localeCompare(b.namaLengkap);
     });
 
-    rows.forEach(item => {
-        const pct = item.totalTarget > 0 ? ((item.approved / item.totalTarget) * 100).toFixed(1) : 0;
+    // Calculate rowspans
+    let kosekaCounts = {};
+    let pmlCounts = {};
+    
+    pList.forEach(p => {
+        kosekaCounts[p.koseka] = (kosekaCounts[p.koseka] || 0) + 1;
+        let pmlKey = p.koseka + "||" + p.pml;
+        pmlCounts[pmlKey] = (pmlCounts[pmlKey] || 0) + 1;
+    });
+
+    let currentKoseka = null;
+    let currentPml = null;
+
+    pList.forEach(item => {
+        const assignmentTersubmit = item.totalTarget - item.open - item.draft;
+        const progresPendataan = item.totalTarget - item.open;
+        const pctSubmitted = item.totalTarget > 0 ? ((assignmentTersubmit / item.totalTarget) * 100).toFixed(1) : 0;
+        const pctPendataan = item.totalTarget > 0 ? ((progresPendataan / item.totalTarget) * 100).toFixed(1) : 0;
         
         const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><strong>${item.koseka}</strong></td>
-            <td><strong>${item.pml}</strong></td>
-            <td>${item.pcls.size}</td>
-            <td>${item.slsCount}</td>
+        let html = '';
+        
+        if (item.koseka !== currentKoseka) {
+            html += `<td rowspan="${kosekaCounts[item.koseka]}" style="vertical-align: middle;"><strong>${item.koseka}</strong></td>`;
+            currentKoseka = item.koseka;
+        }
+        
+        let pmlKey = item.koseka + "||" + item.pml;
+        if (pmlKey !== currentPml) {
+            html += `<td rowspan="${pmlCounts[pmlKey]}" style="vertical-align: middle;"><strong>${item.pml}</strong></td>`;
+            currentPml = pmlKey;
+        }
+
+        html += `
+            <td><strong>${item.namaLengkap}</strong></td>
+            <td>${item.slsList.length}</td>
             <td>${item.totalTarget}</td>
             <td><span class="badge-dot open"></span> ${item.open}</td>
             <td><span class="badge-dot draft"></span> ${item.draft}</td>
@@ -495,11 +541,20 @@ function renderKorwilTable() {
             <td><span class="badge-dot approved"></span> ${item.approved}</td>
             <td>
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <div class="progress-bar-thin" style="width:60px; margin:0;"><div class="progress-fill-thin" style="background:var(--accent-emerald); width:${pct}%"></div></div>
-                    <span style="font-size:11px">${pct}%</span>
+                    <strong style="color:var(--color-submitted)">${assignmentTersubmit}</strong>
+                    <div class="progress-bar-thin" style="width:60px; margin:0;"><div class="progress-fill-thin" style="background:var(--color-submitted); width:${pctSubmitted}%"></div></div>
+                    <span style="font-size:11px;color:var(--text-muted)">${pctSubmitted}%</span>
+                </div>
+            </td>
+            <td>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <strong style="color:#10b981">${progresPendataan}</strong>
+                    <div class="progress-bar-thin" style="width:60px; margin:0;"><div class="progress-fill-thin" style="background:#10b981; width:${pctPendataan}%"></div></div>
+                    <span style="font-size:11px;color:var(--text-muted)">${pctPendataan}%</span>
                 </div>
             </td>
         `;
+        tr.innerHTML = html;
         tbody.appendChild(tr);
     });
 }
