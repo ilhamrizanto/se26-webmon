@@ -1632,10 +1632,12 @@ body.dark-theme {
     .sidebar-footer { display: none; }
     
     .workspace-scrollable {
-        padding: 12px;
+        padding: 12px 12px 80px 12px;
+        overflow-y: auto;
     }
     .kpi-grid, .kpi-grid-status {
         grid-template-columns: 1fr;
+        flex: none;
     }
     .detail-stats-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -1649,6 +1651,7 @@ body.dark-theme {
     .detail-stat-card .value span {
         font-size: 9px !important;
     }
+    /* Dashboard overview: charts stack vertically with fixed heights */
     .charts-row {
         display: flex;
         flex-direction: column;
@@ -1660,18 +1663,20 @@ body.dark-theme {
         height: 300px !important;
         flex: none !important;
     }
+    /* All view sections: stay flex:1 to fill the screen height */
     .view-section.active {
-        min-height: auto;
-        flex: none;
-        padding-bottom: 76px;
-    }
-    .hierarchy-container {
-        min-height: 0;
         flex: 1;
+        min-height: 0;
+        padding-bottom: 0;
+    }
+    /* Hierarchy and table views: stretch to fill */
+    .hierarchy-container {
+        flex: 1;
+        min-height: 0;
     }
     .table-container {
-        min-height: 0;
         flex: 1;
+        min-height: 0;
     }
     .kpi-card[style*="span 2"] {
         grid-column: span 1 !important;
