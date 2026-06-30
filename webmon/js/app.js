@@ -27,6 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setupNavigation();
     setupSearch();
     setupFilters();
+    setupKorwilFilters();
     setupModal();
     setupSorts();
     
@@ -488,8 +489,19 @@ function renderKorwilTable() {
     const tbody = document.querySelector('#table-korwil tbody');
     tbody.innerHTML = '';
 
-    // Get all PCLs and sort by Koorkec -> PML -> Nama Petugas
-    let pList = Object.values(petugasData).filter(p => p.koseka && p.pml);
+    const filterKoseka = document.getElementById('filter-korwil-koseka') ? document.getElementById('filter-korwil-koseka').value : '';
+    const filterPml = document.getElementById('filter-korwil-pml') ? document.getElementById('filter-korwil-pml').value : '';
+    const filterPcl = document.getElementById('filter-korwil-pcl') ? document.getElementById('filter-korwil-pcl').value : '';
+
+    // Get all PCLs and filter/sort by Koorkec -> PML -> Nama Petugas
+    let pList = Object.values(petugasData).filter(p => {
+        if (!p.koseka || !p.pml) return false;
+        if (filterKoseka && p.koseka !== filterKoseka) return false;
+        if (filterPml && p.pml !== filterPml) return false;
+        if (filterPcl && p.namaLengkap !== filterPcl) return false;
+        return true;
+    });
+
     pList.sort((a, b) => {
         if (a.koseka !== b.koseka) return a.koseka.localeCompare(b.koseka);
         if (a.pml !== b.pml) return a.pml.localeCompare(b.pml);
@@ -529,9 +541,11 @@ function renderKorwilTable() {
             currentPml = pmlKey;
         }
 
+        const colorSubmitted = getScaleColor(pctSubmitted);
+        const colorPendataan = getScaleColor(pctPendataan);
+
         html += `
             <td><strong>${item.namaLengkap}</strong></td>
-            <td>${item.slsList.length}</td>
             <td>${item.totalTarget}</td>
             <td><span class="badge-dot open"></span> ${item.open}</td>
             <td><span class="badge-dot draft"></span> ${item.draft}</td>
@@ -541,16 +555,14 @@ function renderKorwilTable() {
             <td><span class="badge-dot approved"></span> ${item.approved}</td>
             <td>
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <strong style="color:var(--color-submitted)">${assignmentTersubmit}</strong>
-                    <div class="progress-bar-thin" style="width:60px; margin:0;"><div class="progress-fill-thin" style="background:var(--color-submitted); width:${pctSubmitted}%"></div></div>
-                    <span style="font-size:11px;color:var(--text-muted)">${pctSubmitted}%</span>
+                    <div class="progress-bar-thin" style="width:60px; margin:0;"><div class="progress-fill-thin" style="background:${colorSubmitted}; width:${pctSubmitted}%"></div></div>
+                    <span style="font-size:11px;color:${colorSubmitted}; font-weight:600;">${pctSubmitted}% <span style="opacity:0.8; font-weight:normal;">(${assignmentTersubmit})</span></span>
                 </div>
             </td>
             <td>
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <strong style="color:#10b981">${progresPendataan}</strong>
-                    <div class="progress-bar-thin" style="width:60px; margin:0;"><div class="progress-fill-thin" style="background:#10b981; width:${pctPendataan}%"></div></div>
-                    <span style="font-size:11px;color:var(--text-muted)">${pctPendataan}%</span>
+                    <div class="progress-bar-thin" style="width:60px; margin:0;"><div class="progress-fill-thin" style="background:${colorPendataan}; width:${pctPendataan}%"></div></div>
+                    <span style="font-size:11px;color:${colorPendataan}; font-weight:600;">${pctPendataan}% <span style="opacity:0.8; font-weight:normal;">(${progresPendataan})</span></span>
                 </div>
             </td>
         `;
@@ -602,6 +614,18 @@ function getSlsStatus(item) {
     if (item.approved === item.total && item.total > 0) return 'APPROVED';
     if (item.open === item.total) return 'OPEN';
     return 'PROGRESS';
+}
+
+function getScaleColor(pct) {
+    let hue;
+    if (pct <= 50) {
+        // 0% to 50%: Red (0) to Yellow (60)
+        hue = (pct / 50) * 60;
+    } else {
+        // 50% to 100%: Yellow (60) to Emerald Green (150)
+        hue = 60 + ((pct - 50) / 50) * 90;
+    }
+    return `hsl(${hue}, 85%, 45%)`;
 }
 
 function getSlsStatusHTML(status) {
@@ -680,6 +704,10 @@ function populateFilterDropdowns() {
 
     // Dynamic Desa dropdown based on selected Kecamatan
     updateDesaDropdown();
+
+    if (document.getElementById('filter-korwil-koseka')) {
+        populateKorwilFilterDropdowns();
+    }
 }
 
 function updateDesaDropdown() {
@@ -727,6 +755,68 @@ function setupFilters() {
         renderSlsTable();
     });
 }
+
+function populateKorwilFilterDropdowns() {
+    const kosekas = new Set();
+    Object.values(petugasData).forEach(p => {
+        if (p.koseka) kosekas.add(p.koseka);
+    });
+    populateSelect('filter-korwil-koseka', Array.from(kosekas).sort(), "Semua Koseka");
+    
+    updateKorwilPmlDropdown();
+}
+
+function updateKorwilPmlDropdown() {
+    const selectedKoseka = document.getElementById('filter-korwil-koseka').value;
+    const pmls = new Set();
+    Object.values(petugasData).forEach(p => {
+        if (selectedKoseka && p.koseka !== selectedKoseka) return;
+        if (p.pml) pmls.add(p.pml);
+    });
+    populateSelect('filter-korwil-pml', Array.from(pmls).sort(), "Semua PML");
+    
+    updateKorwilPclDropdown();
+}
+
+function updateKorwilPclDropdown() {
+    const selectedKoseka = document.getElementById('filter-korwil-koseka').value;
+    const selectedPml = document.getElementById('filter-korwil-pml').value;
+    const pcls = new Set();
+    
+    Object.values(petugasData).forEach(p => {
+        if (selectedKoseka && p.koseka !== selectedKoseka) return;
+        if (selectedPml && p.pml !== selectedPml) return;
+        if (p.namaLengkap) pcls.add(p.namaLengkap);
+    });
+    populateSelect('filter-korwil-pcl', Array.from(pcls).sort(), "Semua PCL");
+}
+
+function setupKorwilFilters() {
+    const filterIds = ['filter-korwil-koseka', 'filter-korwil-pml', 'filter-korwil-pcl'];
+    filterIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', () => {
+                if (id === 'filter-korwil-koseka') {
+                    updateKorwilPmlDropdown();
+                } else if (id === 'filter-korwil-pml') {
+                    updateKorwilPclDropdown();
+                }
+                renderKorwilTable();
+            });
+        }
+    });
+    
+    const resetBtn = document.getElementById('btn-reset-korwil-filters');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            document.getElementById('filter-korwil-koseka').value = '';
+            updateKorwilPmlDropdown();
+            renderKorwilTable();
+        });
+    }
+}
+
 
 function setupModal() {
     const modal = document.getElementById('petugas-modal');
@@ -935,17 +1025,32 @@ function renderHierarchyView() {
         const data = kosekaData[koseka];
         const total = data.totalTarget || 0;
         const progressVal = total > 0 ? ((data.approved + data.submitted) / total * 100).toFixed(1) : "0.0";
+        const pendataanVal = total > 0 ? ((total - data.open) / total * 100).toFixed(1) : "0.0";
         
         const card = document.createElement('div');
         card.className = 'hierarchy-card glass-panel-inner';
         card.innerHTML = `
-            <div class="hierarchy-card-header">
+            <div class="hierarchy-card-header" style="margin-bottom: 6px;">
                 <span class="hierarchy-card-title" title="${koseka}">${koseka}</span>
-                <span class="hierarchy-progress-percent">${progressVal}%</span>
             </div>
-            <div class="hierarchy-progress-wrapper">
-                <div class="hierarchy-progress-bar">
-                    <div class="hierarchy-progress-fill" style="width: ${progressVal}%;"></div>
+            <div style="display:flex; flex-direction:column; gap:4px; margin-bottom: 8px;">
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
+                        <span style="color:var(--text-muted)">Tersubmit</span>
+                        <span style="color:var(--color-approved);">${progressVal}%</span>
+                    </div>
+                    <div class="hierarchy-progress-bar" style="height:4px; margin-top:2px;">
+                        <div class="hierarchy-progress-fill" style="width: ${progressVal}%; background: var(--color-approved);"></div>
+                    </div>
+                </div>
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
+                        <span style="color:var(--text-muted)">Pendataan</span>
+                        <span style="color:#f59e0b;">${pendataanVal}%</span>
+                    </div>
+                    <div class="hierarchy-progress-bar" style="height:4px; margin-top:2px;">
+                        <div class="hierarchy-progress-fill" style="width: ${pendataanVal}%; background: #f59e0b;"></div>
+                    </div>
                 </div>
             </div>
             <div class="hierarchy-card-meta">
@@ -994,17 +1099,32 @@ function renderPmlList(kosekaName) {
         const data = pmlData[pml] || { totalTarget: 0, open: 0, draft: 0, submitted: 0, approved: 0, rejected: 0, revoked: 0, pcls: new Set(), slsCount: 0 };
         const total = data.totalTarget || 0;
         const progressVal = total > 0 ? ((data.approved + data.submitted) / total * 100).toFixed(1) : "0.0";
+        const pendataanVal = total > 0 ? ((total - data.open) / total * 100).toFixed(1) : "0.0";
 
         const card = document.createElement('div');
         card.className = 'hierarchy-card glass-panel-inner';
         card.innerHTML = `
-            <div class="hierarchy-card-header">
+            <div class="hierarchy-card-header" style="margin-bottom: 6px;">
                 <span class="hierarchy-card-title" title="${pml}">${pml}</span>
-                <span class="hierarchy-progress-percent">${progressVal}%</span>
             </div>
-            <div class="hierarchy-progress-wrapper">
-                <div class="hierarchy-progress-bar">
-                    <div class="hierarchy-progress-fill" style="width: ${progressVal}%;"></div>
+            <div style="display:flex; flex-direction:column; gap:4px; margin-bottom: 8px;">
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
+                        <span style="color:var(--text-muted)">Tersubmit</span>
+                        <span style="color:var(--color-approved);">${progressVal}%</span>
+                    </div>
+                    <div class="hierarchy-progress-bar" style="height:4px; margin-top:2px;">
+                        <div class="hierarchy-progress-fill" style="width: ${progressVal}%; background: var(--color-approved);"></div>
+                    </div>
+                </div>
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
+                        <span style="color:var(--text-muted)">Pendataan</span>
+                        <span style="color:#f59e0b;">${pendataanVal}%</span>
+                    </div>
+                    <div class="hierarchy-progress-bar" style="height:4px; margin-top:2px;">
+                        <div class="hierarchy-progress-fill" style="width: ${pendataanVal}%; background: #f59e0b;"></div>
+                    </div>
                 </div>
             </div>
             <div class="hierarchy-card-meta">
@@ -1047,17 +1167,32 @@ function renderPclList(pmlName) {
 
         const total = data.totalTarget || 0;
         const progressVal = total > 0 ? ((data.approved + data.submitted) / total * 100).toFixed(1) : "0.0";
+        const pendataanVal = total > 0 ? ((total - data.open) / total * 100).toFixed(1) : "0.0";
 
         const card = document.createElement('div');
         card.className = 'hierarchy-card glass-panel-inner';
         card.innerHTML = `
-            <div class="hierarchy-card-header">
+            <div class="hierarchy-card-header" style="margin-bottom: 6px;">
                 <span class="hierarchy-card-title" title="${data.namaLengkap}">${data.namaLengkap}</span>
-                <span class="hierarchy-progress-percent">${progressVal}%</span>
             </div>
-            <div class="hierarchy-progress-wrapper">
-                <div class="hierarchy-progress-bar">
-                    <div class="hierarchy-progress-fill" style="width: ${progressVal}%;"></div>
+            <div style="display:flex; flex-direction:column; gap:4px; margin-bottom: 8px;">
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
+                        <span style="color:var(--text-muted)">Tersubmit</span>
+                        <span style="color:var(--color-approved);">${progressVal}%</span>
+                    </div>
+                    <div class="hierarchy-progress-bar" style="height:4px; margin-top:2px;">
+                        <div class="hierarchy-progress-fill" style="width: ${progressVal}%; background: var(--color-approved);"></div>
+                    </div>
+                </div>
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
+                        <span style="color:var(--text-muted)">Pendataan</span>
+                        <span style="color:#f59e0b;">${pendataanVal}%</span>
+                    </div>
+                    <div class="hierarchy-progress-bar" style="height:4px; margin-top:2px;">
+                        <div class="hierarchy-progress-fill" style="width: ${pendataanVal}%; background: #f59e0b;"></div>
+                    </div>
                 </div>
             </div>
             <div class="hierarchy-card-meta">
@@ -1107,20 +1242,20 @@ function renderPclDetail(email) {
                     <span class="label" title="Submitted + Approved">Penyelesaian Muatan</span>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
                         <strong class="value" style="font-size:14px;">${data.approved + data.submitted} / ${total}</strong>
-                        <span class="hierarchy-progress-percent" style="font-size:12px;">${progressVal}%</span>
+                        <span class="hierarchy-progress-percent" style="font-size:12px; color:var(--color-approved);">${progressVal}%</span>
                     </div>
                     <div class="hierarchy-progress-bar" style="margin-top:6px; height:6px;">
-                        <div class="hierarchy-progress-fill" style="width: ${progressVal}%;"></div>
+                        <div class="hierarchy-progress-fill" style="width: ${progressVal}%; background: var(--color-approved);"></div>
                     </div>
                 </div>
                 <div class="detail-stat-card glass-panel-inner">
                     <span class="label" title="Semua status selain OPEN">Progres Pendataan</span>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
                         <strong class="value" style="font-size:14px;">${total - data.open} / ${total}</strong>
-                        <span class="hierarchy-progress-percent" style="font-size:12px;">${total > 0 ? ((total - data.open) / total * 100).toFixed(1) : "0.0"}%</span>
+                        <span class="hierarchy-progress-percent" style="font-size:12px; color:#f59e0b;">${total > 0 ? ((total - data.open) / total * 100).toFixed(1) : "0.0"}%</span>
                     </div>
                     <div class="hierarchy-progress-bar" style="margin-top:6px; height:6px;">
-                        <div class="hierarchy-progress-fill" style="width: ${total > 0 ? ((total - data.open) / total * 100).toFixed(1) : "0.0"}%; background: var(--color-submitted);"></div>
+                        <div class="hierarchy-progress-fill" style="width: ${total > 0 ? ((total - data.open) / total * 100).toFixed(1) : "0.0"}%; background: #f59e0b;"></div>
                     </div>
                 </div>
             </div>

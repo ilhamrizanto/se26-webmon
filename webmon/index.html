@@ -268,7 +268,28 @@
                         <h1>Koordinator & PML Overview</h1>
                         <p>Hierarchical progress tracking by Subdistrict Coordinator and PML.</p>
                     </div>
-                    
+                    <div class="filter-bar glass-panel-inner" id="filters-korwil" style="margin-bottom: 16px;">
+                        <div class="filter-item">
+                            <label for="filter-korwil-koseka">Koseka</label>
+                            <select id="filter-korwil-koseka" class="glass-select">
+                                <option value="">Semua Koseka</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="filter-korwil-pml">PML</label>
+                            <select id="filter-korwil-pml" class="glass-select">
+                                <option value="">Semua PML</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="filter-korwil-pcl">PCL</label>
+                            <select id="filter-korwil-pcl" class="glass-select">
+                                <option value="">Semua PCL</option>
+                            </select>
+                        </div>
+                        <button id="btn-reset-korwil-filters" class="btn-reset"><i class="ri-refresh-line"></i> Reset</button>
+                    </div>
+
                     <div class="table-container glass-panel-inner">
                         <div class="table-header">
                             <h3><i class="ri-team-line"></i> Supervisor Hierarchy Progress</h3>
@@ -280,7 +301,6 @@
                                         <th>Koseka (Koordinator Kecamatan)</th>
                                         <th>PML (Pengawas)</th>
                                         <th>PCL (Petugas)</th>
-                                        <th>SLS Assigned</th>
                                         <th>Target Dokumen</th>
                                         <th>Open</th>
                                         <th>Draft</th>
