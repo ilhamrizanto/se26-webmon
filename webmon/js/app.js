@@ -1103,14 +1103,24 @@ function renderPclDetail(email) {
                     <span class="label">PML</span>
                     <strong class="value" title="${data.pml}">${data.pml}</strong>
                 </div>
-                <div class="detail-stat-card glass-panel-inner" style="grid-column: span 2;">
-                    <span class="label">Penyelesaian Muatan</span>
+                <div class="detail-stat-card glass-panel-inner">
+                    <span class="label" title="Submitted + Approved">Penyelesaian Muatan</span>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
-                        <strong class="value">${data.approved + data.submitted} / ${total} Target</strong>
-                        <span class="hierarchy-progress-percent" style="font-size:14px;">${progressVal}%</span>
+                        <strong class="value" style="font-size:14px;">${data.approved + data.submitted} / ${total}</strong>
+                        <span class="hierarchy-progress-percent" style="font-size:12px;">${progressVal}%</span>
                     </div>
                     <div class="hierarchy-progress-bar" style="margin-top:6px; height:6px;">
                         <div class="hierarchy-progress-fill" style="width: ${progressVal}%;"></div>
+                    </div>
+                </div>
+                <div class="detail-stat-card glass-panel-inner">
+                    <span class="label" title="Semua status selain OPEN">Progres Pendataan</span>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+                        <strong class="value" style="font-size:14px;">${total - data.open} / ${total}</strong>
+                        <span class="hierarchy-progress-percent" style="font-size:12px;">${total > 0 ? ((total - data.open) / total * 100).toFixed(1) : "0.0"}%</span>
+                    </div>
+                    <div class="hierarchy-progress-bar" style="margin-top:6px; height:6px;">
+                        <div class="hierarchy-progress-fill" style="width: ${total > 0 ? ((total - data.open) / total * 100).toFixed(1) : "0.0"}%; background: var(--color-submitted);"></div>
                     </div>
                 </div>
             </div>

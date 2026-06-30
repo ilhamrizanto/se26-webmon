@@ -14,7 +14,11 @@ venv.bak/
 
 # Data temporary / Output script
 archive/
+*.csv
 hasil_rekap_petugas.csv
+chrome_data/
+chrome_debug_data/
+config.txt
 
 # IDE
 .vscode/

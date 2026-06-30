@@ -1,172 +1,366 @@
-from playwright.sync_api import sync_playwright
+import configparser
 import csv
 import json
 import os
+import re
+import time
+import subprocess
+from playwright.sync_api import sync_playwright
+
+def load_config():
+    config_file = "config.txt"
+    if not os.path.exists(config_file):
+        with open(config_file, "w") as f:
+            f.write("[Config]\n")
+            f.write("username = \n")
+            f.write("password = \n")
+            f.write("target_url = https://fasih-sm.bps.go.id/app/surveys/b0cb30f1-bd3b-4c46-a7b4-eb3f8cfff9e7/c3ed3362-c12c-49f0-a1ad-60ed7e273e51\n")
+            f.write("survey_role_id = \n")
+        print(f"File {config_file} dibuat. Silakan isi kredensial Anda lalu jalankan ulang script.")
+        return None
+        
+    config = configparser.ConfigParser()
+    config.read(config_file)
+    return config['Config']
+
+def launch_real_chrome():
+    chrome_paths = [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        r"C:\Users\TECNO\AppData\Local\Google\Chrome\Application\chrome.exe"
+    ]
+    
+    executable = None
+    for path in chrome_paths:
+        if os.path.exists(path):
+            executable = path
+            break
+            
+    if not executable:
+        print("Google Chrome asli tidak ditemukan di sistem Anda.")
+        return False
+        
+    user_data_dir = os.path.join(os.getcwd(), "chrome_debug_data")
+    if not os.path.exists(user_data_dir):
+        os.makedirs(user_data_dir)
+        
+    print(f"Membuka Chrome asli secara otomatis (Anti-Bot) dari: {executable}")
+    try:
+        subprocess.Popen([
+            executable,
+            "--remote-debugging-port=9222",
+            f"--user-data-dir={user_data_dir}",
+            "--no-first-run",
+            "--no-default-browser-check"
+        ])
+        time.sleep(3) # Wait for Chrome to initialize
+        return True
+    except Exception as e:
+        print(f"Gagal membuka Chrome: {e}")
+        return False
 
 def run():
+    print("=== Fasih Scraping Tool (Anti-Bot Mode) ===")
+    
+    config = load_config()
+    if not config:
+        return
+        
+    username = config.get("username", "")
+    password = config.get("password", "")
+    target_url = config.get("target_url", "")
+    survey_role_id = config.get("survey_role_id", "")
+    
+    uuids = re.findall(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}', target_url)
+    if len(uuids) < 2:
+        print("Error: URL target di config.txt tidak valid (harus mengandung Survey ID dan Period ID).")
+        return
+        
+    survey_id = uuids[0]
+    survey_period_id = uuids[1]
+    
     with sync_playwright() as p:
-        print("Connecting to local Chrome via CDP...")
+        # Hubungkan ke Chrome asli via CDP (menghindari deteksi Bot)
         try:
             browser = p.chromium.connect_over_cdp("http://localhost:9222")
-            context = browser.contexts[0]
-            
-            page = None
-            for pg in context.pages:
-                if "fasih" in pg.url:
-                    page = pg
-                    print(f"Using active page: {page.url}")
-                    break
-                    
-            if not page:
-                print("Error: Fasih page not found in active browser.")
+            print("Berhasil terhubung ke Chrome yang sudah berjalan.")
+        except Exception:
+            print("Chrome Debug belum berjalan. Menjalankan Chrome...")
+            if launch_real_chrome():
+                try:
+                    browser = p.chromium.connect_over_cdp("http://localhost:9222")
+                    print("Berhasil terhubung ke Chrome.")
+                except Exception as e:
+                    print("Gagal terhubung ke CDP setelah Chrome dibuka:", e)
+                    return
+            else:
                 return
+
+        context = browser.contexts[0]
+        page = context.pages[0] if len(context.pages) > 0 else context.new_page()
+        
+        print("Navigasi ke halaman Login Fasih...")
+        try:
+            # Go to oauth_login.html first to avoid direct-link bot detection
+            page.goto("https://fasih-sm.bps.go.id/oauth_login.html", timeout=30000, wait_until="domcontentloaded")
             
-            print("Fetching all pages of rekap data via programmatic fetch in page context...")
-            js_code = """
-            async () => {
-                const getCookie = (name) => {
-                    const value = `; ${document.cookie}`;
-                    const parts = value.split(`; ${name}=`);
-                    if (parts.length === 2) return parts.pop().split(';').shift();
-                    return '';
-                };
+            # Click Login SSO BPS button if it's there
+            print("Mencari tombol Login SSO BPS...")
+            try:
+                page.locator("text=SSO BPS").first.click(timeout=5000)
+            except Exception:
+                try:
+                    page.click("//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sso bps')]", timeout=5000)
+                except Exception:
+                    pass # Maybe already logged in
                 
-                const xsrfToken = decodeURIComponent(getCookie('XSRF-TOKEN'));
-                const allContent = [];
-                let currentPage = 0;
-                const pageSize = 5;
+            # Now we should be on SSO BPS page
+            if "sso.bps.go.id" in page.url:
+                print("Berada di halaman login SSO. Melakukan pengisian kredensial otomatis...")
+                if not username or not password:
+                    print("Username atau password di config.txt kosong! Silakan isi terlebih dahulu.")
+                    return
+                    
+                page.fill('input[name="username"]', username)
+                page.fill('input[name="password"]', password)
+                page.click('button[type="submit"], input[type="submit"]')
                 
-                while (true) {
-                    console.log(`Fetching page ${currentPage}...`);
-                    const response = await fetch('/app/api/analytic/api/v2/assignment/report-progress-by-responsibility', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'x-xsrf-token': xsrfToken
-                        },
-                        body: JSON.stringify({
-                            surveyPeriodId: "fd68e454-ba45-4b85-8205-f3bf777ded24",
-                            surveyRoleId: "6d7d919a-45e5-4779-bb87-2905b49fd31a",
-                            size: pageSize,
-                            page: currentPage,
-                            search: "",
-                            target: "TARGET_ONLY",
-                            region: {
-                                region1Id: null,
-                                region2Id: null,
-                                region3Id: null,
-                                region4Id: null,
-                                region5Id: null,
-                                region6Id: null,
-                                region7Id: null,
-                                region8Id: null,
-                                region9Id: null,
-                                region10Id: null
-                            },
-                            regionSummaryLevel: 6
-                        })
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP error on page ${currentPage}! Status: ${response.status}`);
-                    }
-                    
-                    const result = await response.json();
-                    const content = result?.data?.content || [];
-                    
-                    if (content.length === 0) {
-                        break;
-                    }
-                    
-                    allContent.push(...content);
-                    currentPage++;
-                    
-                    // Safety check to prevent infinite loops
-                    if (currentPage > 100) {
-                        break;
-                    }
-                }
-                
-                return allContent;
-            }
-            """
-            
-            all_officers = page.evaluate(js_code)
-            print(f"Successfully retrieved data for {len(all_officers)} officers.")
-            
-            filename = "hasil_rekap_petugas.csv"
-            
-            # Write to CSV
-            print(f"Writing data to {filename}...")
-            with open(filename, "w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow([
-                    "Email Petugas", "Total Assignment", "Nama SLS", 
-                    "OPEN", "SUBMITTED BY PENCACAH", "DRAFT", 
-                    "APPROVED BY PENGAWAS", "REJECTED BY PENGAWAS", "REVOKED BY PENGAWAS",
-                    "RAW_BODY_TEXT"
-                ])
-                
-                total_sls_rows = 0
-                for officer in all_officers:
-                    email = officer.get("email") or officer.get("username")
-                    total_assignment = officer.get("total", 0)
-                    region_summary = officer.get("regionSummary", [])
-                    
-                    if not region_summary:
-                        # Write a row with empty stats if there is no SLS assigned
-                        writer.writerow([
-                            email, total_assignment, "N/A", 
-                            0, 0, 0, 0, 0, 0, ""
-                        ])
-                        total_sls_rows += 1
-                    else:
-                        for region in region_summary:
-                            sls_code = region.get("regionCode")
-                            
-                            # Initialize stats
-                            stats = {
-                                "OPEN": 0,
-                                "SUBMITTED BY PENCACAH": 0,
-                                "DRAFT": 0,
-                                "APPROVED BY PENGAWAS": 0,
-                                "REJECTED BY PENGAWAS": 0,
-                                "REVOKED BY PENGAWAS": 0
-                            }
-                            
-                            # Populate stats from statusBreakdown
-                            for bd in region.get("statusBreakdown", []):
-                                status_name = bd.get("status", "").upper()
-                                count = bd.get("count", 0)
-                                
-                                # Match status names case-insensitively
-                                if "OPEN" in status_name:
-                                    stats["OPEN"] = count
-                                elif "SUBMITTED" in status_name or "PENCACAH" in status_name:
-                                    stats["SUBMITTED BY PENCACAH"] = count
-                                elif "DRAFT" in status_name:
-                                    stats["DRAFT"] = count
-                                elif "APPROVED" in status_name or "PENGAWAS" in status_name:
-                                    # Wait, differentiate approved/rejected/revoked
-                                    if "APPROVED" in status_name:
-                                        stats["APPROVED BY PENGAWAS"] = count
-                                    elif "REJECTED" in status_name:
-                                        stats["REJECTED BY PENGAWAS"] = count
-                                    elif "REVOKED" in status_name:
-                                        stats["REVOKED BY PENGAWAS"] = count
-                                
-                            writer.writerow([
-                                email, total_assignment, sls_code,
-                                stats["OPEN"], stats["SUBMITTED BY PENCACAH"], stats["DRAFT"],
-                                stats["APPROVED BY PENGAWAS"], stats["REJECTED BY PENGAWAS"], stats["REVOKED BY PENGAWAS"],
-                                json.dumps(region)
-                            ])
-                            total_sls_rows += 1
-                            
-            print(f"Successfully wrote {total_sls_rows} rows to {filename}!")
-            
+                print("Menunggu proses login selesai...")
+                try:
+                    page.wait_for_url(lambda url: "fasih-sm.bps.go.id" in url, timeout=15000)
+                except Exception:
+                    print("Timeout menunggu redirect login. Kita coba paksa lanjut...")
+                    time.sleep(3)
         except Exception as e:
-            print("Error running script:", e)
+            print("Terjadi sedikit masalah saat auto-login:", e)
+            print("Script akan tetap memaksa lanjut ke target URL...")
+
+        print("Menavigasi ke URL target dasbor kegiatan (menunggu hingga 3 menit)...")
+        try:
+            page.goto(target_url, timeout=180000, wait_until="domcontentloaded")
+        except Exception as e:
+            print("Peringatan saat load URL target:", e)
+                
+        if not survey_role_id:
+            print("\n[Otomasi Penuh Aktif] survey_role_id tidak ditemukan di config.txt.")
+            print(">>> MENCARI ROLE ID SECARA OTOMATIS (Sabar, server BPS lambat) <<<")
+            
+            try:
+                print("Menunggu elemen 'Rekap Petugas' muncul di layar...")
+                
+                # Robust JS click for Rekap Petugas
+                js_click_rekap = """
+                () => {
+                    let els = Array.from(document.querySelectorAll('*'));
+                    let target = els.find(e => e.textContent && e.textContent.trim() === 'Rekap Petugas' && e.children.length === 0);
+                    if (!target) {
+                        target = els.find(e => e.textContent && e.textContent.includes('Rekap Petugas') && e.tagName !== 'SCRIPT' && e.tagName !== 'STYLE');
+                    }
+                    if (target) {
+                        target.click();
+                        if(target.parentElement) target.parentElement.click();
+                        return true;
+                    }
+                    return false;
+                }
+                """
+                
+                # Polling for Rekap Petugas up to 2 minutes
+                rekap_clicked = False
+                for i in range(60):
+                    if page.evaluate(js_click_rekap):
+                        rekap_clicked = True
+                        break
+                    time.sleep(2)
+                    
+                if not rekap_clicked:
+                    print("Peringatan: Gagal menemukan elemen 'Rekap Petugas' setelah 2 menit menunggu.")
+                else:
+                    print("✅ Berhasil mengklik 'Rekap Petugas'!")
+                
+                print("Menunggu tab termuat (memberi jeda 5 detik)...")
+                page.wait_for_timeout(5000)
+                
+                print("Menunggu elemen 'Pencacah' muncul di layar dan menangkap request API...")
+                # Robust JS click for Pencacah
+                js_click_pencacah = """
+                () => {
+                    let els = Array.from(document.querySelectorAll('*'));
+                    let target = els.find(e => e.textContent && e.textContent.trim() === 'Pencacah' && e.children.length === 0);
+                    if (!target) {
+                        target = els.find(e => e.textContent && e.textContent.includes('Pencacah') && e.tagName !== 'SCRIPT' && e.tagName !== 'STYLE');
+                    }
+                    if (target) {
+                        target.click();
+                        if(target.parentElement) target.parentElement.click();
+                        return true;
+                    }
+                    return false;
+                }
+                """
+                
+                # We need to expect the request simultaneously with the click. 
+                # Since we are polling, we can start the expect_request in the background, 
+                # or we just poll until the element is FOUND, and then click it inside expect_request.
+                
+                js_check_pencacah = """
+                () => {
+                    let els = Array.from(document.querySelectorAll('*'));
+                    let target = els.find(e => e.textContent && e.textContent.trim() === 'Pencacah' && e.children.length === 0);
+                    if (!target) {
+                        target = els.find(e => e.textContent && e.textContent.includes('Pencacah') && e.tagName !== 'SCRIPT' && e.tagName !== 'STYLE');
+                    }
+                    return target ? true : false;
+                }
+                """
+                
+                pencacah_found = False
+                for i in range(30):
+                    if page.evaluate(js_check_pencacah):
+                        pencacah_found = True
+                        break
+                    time.sleep(2)
+                    
+                if pencacah_found:
+                    print("Elemen 'Pencacah' ditemukan! Mengklik dan menangkap network request...")
+                    with page.expect_request(lambda request: "report-progress-by-responsibility" in request.url and request.method == "POST", timeout=60000) as req_info:
+                        page.evaluate(js_click_pencacah)
+                    
+                    req = req_info.value
+                    captured_payload = json.loads(req.post_data)
+                    survey_role_id = captured_payload.get('surveyRoleId', '')
+                    print(f"✅ Request Pencacah tertangkap! Role ID: {survey_role_id}")
+                    base_payload = captured_payload
+                else:
+                    print("Peringatan: Tidak menemukan elemen 'Pencacah'. Script akan gagal.")
+                    return
+            except Exception as e:
+                print(f"Gagal mengklik otomatis atau menangkap request: {e}")
+                return
+        else:
+            print(f"Menggunakan Role ID dari config.txt: {survey_role_id}")
+            # Create a standard payload
+            base_payload = {
+                "surveyPeriodId": survey_period_id,
+                "surveyRoleId": survey_role_id,
+                "size": 10,
+                "page": 0,
+                "search": "",
+                "target": "TARGET_ONLY",
+                "region": {
+                    "region1Id": None, "region2Id": None, "region3Id": None,
+                    "region4Id": None, "region5Id": None, "region6Id": None,
+                    "region7Id": None, "region8Id": None, "region9Id": None, "region10Id": None
+                },
+                "regionSummaryLevel": 6
+            }
+            
+        print("\nMengambil halaman data rekap secara bertahap (Sistem Anti-Lemot & Retry)...")
+        
+        js_fetch_single = """
+        async ([basePayload, pageIndex]) => {
+            const getCookie = (name) => {
+                const value = `; ${document.cookie}`;
+                const parts = value.split(`; ${name}=`);
+                if (parts.length === 2) return parts.pop().split(';').shift();
+                return '';
+            };
+            
+            const xsrf = decodeURIComponent(getCookie('XSRF-TOKEN'));
+            const url = '/app/api/analytic/api/v2/assignment/report-progress-by-responsibility';
+            const pageSize = basePayload.size || 10;
+            
+            let payload = { ...basePayload, page: pageIndex, size: pageSize };
+            
+            let response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-xsrf-token': xsrf
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                let errText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errText.substring(0, 50)}`);
+            }
+            
+            return await response.json();
+        }
+        """
+        
+        all_records = []
+        current_page = 0
+        is_last = False
+        
+        while not is_last:
+            success = False
+            retries = 3
+            while retries > 0 and not success:
+                try:
+                    print(f"Memproses Halaman {current_page + 1}... ", end="", flush=True)
+                    data = page.evaluate(js_fetch_single, [base_payload, current_page])
+                    
+                    if data.get("success") and data.get("data") and data.get("data").get("content") is not None:
+                        content = data["data"]["content"]
+                        all_records.extend(content)
+                        is_last = data["data"]["last"]
+                        print(f"✅ Sukses! (+{len(content)} baris. Total: {len(all_records)})")
+                        success = True
+                    else:
+                        print("Tidak ada data. (Selesai)")
+                        is_last = True
+                        success = True
+                except Exception as e:
+                    retries -= 1
+                    err_msg = str(e)
+                    print(f"\n⚠️ Gagal: Server Fasih lambat atau timeout (Sisa percobaan: {retries}).")
+                    if retries > 0:
+                        print("Menunggu 5 detik sebelum mencoba lagi...")
+                        time.sleep(5)
+                    else:
+                        print(f"❌ Error detail: {err_msg}")
+            
+            if not success:
+                print(f"\n❌ TERHENTI di Halaman {current_page + 1} karena server Fasih terus-menerus gagal merespons.")
+                print("Menyimpan data yang berhasil dikumpulkan sejauh ini...")
+                break
+                
+            current_page += 1
+            if current_page > 500: # Infinite loop safety
+                break
+                
+        if not all_records:
+            print("Tidak ada data yang ditemukan untuk disave.")
+            return
+            
+        output_filename = "hasil_rekap_petugas.csv"
+        print(f"Menulis data ke {output_filename}...")
+        
+        first_record = all_records[0]
+        fieldnames = [
+            "regionId", "regionName", "username", "name", 
+            "surveyRoleId", "surveyRoleName", "totalTarget", 
+            "totalOpen", "totalDraft", "totalSubmitted", 
+            "totalRejected", "totalApproved", "assignmentStatus"
+        ]
+        
+        for key in first_record.keys():
+            if key not in fieldnames:
+                fieldnames.append(key)
+        
+        with open(output_filename, mode='w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
+            writer.writeheader()
+            for row in all_records:
+                writer.writerow(row)
+                
+        print(f"✅ Berhasil menulis {len(all_records)} baris ke {output_filename}!")
+        print("Tugas selesai.")
+        
+        # Opsi untuk close browser (kita biarkan saja terbuka agar user bisa lanjut kerja)
+        # browser.close()
 
 if __name__ == "__main__":
     run()
