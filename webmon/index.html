@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Webmon - SE2026</title>
+    <title>Dashboard SE2026</title>
     <!-- Fonts: Outfit for heading, Inter for content -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,12 +11,13 @@
     <!-- Icons -->
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%238b5cf6' d='M3 3V21H21V19H5V3H3ZM7 17V11H11V17H7ZM13 17V7H17V17H13Z'/></svg>">
+    <link rel="icon" type="image/png" href="img/se.png">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=65">
     <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
     <script>
         window.onerror = function(msg, url, lineNo, columnNo, error) {
             const loader = document.getElementById('loader');
@@ -33,7 +34,7 @@
         });
     </script>
 </head>
-<body class="dark-theme">
+<body class="light-theme">
     
     <!-- Background Removed -->
 
@@ -48,8 +49,8 @@
             <div class="spinner-wrapper">
                 <div class="spinner"></div>
             </div>
-            <h3>Webmon SE2026</h3>
-            <p>Syncing field data records...</p>
+            <h3>Dashboard SE2026</h3>
+            <p>BPS Kabupaten Halmahera Utara &mdash; Memuat data lapangan&hellip;</p>
         </div>
     </div>
 
@@ -64,17 +65,18 @@
                     <span class="dot yellow"></span>
                     <span class="dot green"></span>
                 </div>
-                <div class="brand">
-                    <i class="ri-radar-fill"></i>
-                    <h2>Webmon SE2026</h2>
+                <div class="brand" style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+                    <div style="display:flex; gap:4px; align-items:center;">
+                        <img src="img/se.png" alt="SE2026" style="height:48px; width:auto; border-radius:4px;">
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:2px;">
+                        <span style="font-family:'Outfit',sans-serif; font-size:15px; font-weight:700; color:var(--text-title); letter-spacing:-0.2px; line-height:1.1;">Dashboard SE2026</span>
+                        <span style="font-size:10px; color:var(--text-muted); font-weight:500; line-height:1.2;">BPS Kab. Halmahera Utara</span>
+                    </div>
                 </div>
             </div>
 
-            <div class="search-box glass-panel-inner" style="width: 100%; margin-bottom: 20px;">
-                <i class="ri-search-2-line"></i>
-                <input type="text" id="global-search" placeholder="Search data...">
-            </div>
-            
+
             <nav class="nav-menu">
                 <a href="#" class="nav-item active" data-target="dashboard">
                     <i class="ri-macbook-line"></i>
@@ -82,11 +84,11 @@
                 </a>
                 <a href="#" class="nav-item" data-target="korwil">
                     <i class="ri-team-line"></i>
-                    <span>Koordinator & PML</span>
+                    <span>PJ Kec &amp; PML</span>
                 </a>
                 <a href="#" class="nav-item" data-target="hierarchy">
                     <i class="ri-node-tree"></i>
-                    <span>Hierarchy Monitor</span>
+                    <span>Monitor Hierarki</span>
                 </a>
                 <a href="#" class="nav-item" data-target="petugas" style="display: none !important;">
                     <i class="ri-user-smile-line"></i>
@@ -116,9 +118,14 @@
                 
                 <!-- Overview / Dashboard Panel -->
                 <section id="view-dashboard" class="view-section active">
-                    <div class="section-title-block">
-                        <h1>Field Performance Summary</h1>
-                        <p>Statistical progress of SE2026 field work.</p>
+                    <div class="section-title-block" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+                        <div>
+                            <h1>Ringkasan Kinerja Lapangan</h1>
+                            <p>Statistik progres pendataan SE2026 &mdash; BPS Kabupaten Halmahera Utara.</p>
+                        </div>
+                        <button id="btn-export-excel" onclick="exportOverviewToExcel()" style="display:flex; align-items:center; gap:7px; background:linear-gradient(135deg,#10b981,#059669); color:#fff; border:none; border-radius:10px; padding:9px 16px; font-family:'Outfit',sans-serif; font-size:13px; font-weight:600; cursor:pointer; box-shadow:0 4px 12px rgba(16,185,129,0.35); transition:all .2s; white-space:nowrap;">
+                            <i class="ri-file-excel-2-line" style="font-size:16px;"></i> Export Excel
+                        </button>
                     </div>
 
                     <!-- KPI grid including specific status cards -->
@@ -138,7 +145,7 @@
                                     </div>
                                     <div style="text-align: right;">
                                         <h2 id="kpi-completion-percentage" style="color: #10b981; font-size: 48px; text-shadow: 0 0 10px rgba(16,185,129,0.3);">0%</h2>
-                                        <p class="kpi-sub-desc">Overall Completion</p>
+                                        <p class="kpi-sub-desc">Progres Keseluruhan</p>
                                     </div>
                                 </div>
                                 <div class="progress-bar-thin" style="height: 6px; margin-top: 16px; background: rgba(255,255,255,0.05); border-radius: 6px;">
@@ -150,11 +157,11 @@
                         <!-- Status Distribution Horizontal Bar -->
                         <div class="kpi-card total-card glass-panel-inner" style="grid-column: span 1;">
                             <div class="kpi-card-header">
-                                <span class="label">Status Distribution</span>
+                                <span class="label">Distribusi Status</span>
                                 <div class="kpi-icon"><i class="ri-bar-chart-horizontal-line"></i></div>
                             </div>
                             <div class="kpi-card-body" style="justify-content: center; display: flex; flex-direction: column;">
-                                <div style="position: relative; height: 100px; width: 100%; margin-top: 10px;">
+                                <div style="position: relative; height: 130px; width: 100%; margin-top: 0;">
                                     <canvas id="statusDistributionChart"></canvas>
                                 </div>
                             </div>
@@ -170,7 +177,7 @@
                             </div>
                             <div class="kpi-card-body">
                                 <h3 id="kpi-open">0</h3>
-                                <p class="kpi-sub-desc">Not yet started</p>
+                                <p class="kpi-sub-desc">Belum dimulai</p>
                             </div>
                         </div>
 
@@ -182,7 +189,7 @@
                             </div>
                             <div class="kpi-card-body">
                                 <h3 id="kpi-draft">0</h3>
-                                <p class="kpi-sub-desc">Saved locally</p>
+                                <p class="kpi-sub-desc">Tersimpan lokal</p>
                             </div>
                         </div>
 
@@ -194,7 +201,7 @@
                             </div>
                             <div class="kpi-card-body">
                                 <h3 id="kpi-submitted">0</h3>
-                                <p class="kpi-sub-desc">Awaiting validation</p>
+                                <p class="kpi-sub-desc">Menunggu validasi</p>
                             </div>
                         </div>
 
@@ -206,7 +213,7 @@
                             </div>
                             <div class="kpi-card-body">
                                 <h3 id="kpi-rejected">0</h3>
-                                <p class="kpi-sub-desc">Needs revision</p>
+                                <p class="kpi-sub-desc">Perlu revisi</p>
                             </div>
                         </div>
 
@@ -218,7 +225,7 @@
                             </div>
                             <div class="kpi-card-body">
                                 <h3 id="kpi-revoked">0</h3>
-                                <p class="kpi-sub-desc">Pulled back by Koseka</p>
+                                <p class="kpi-sub-desc">Ditarik oleh PJ Kecamatan</p>
                             </div>
                         </div>
 
@@ -230,49 +237,75 @@
                             </div>
                             <div class="kpi-card-body">
                                 <h3 id="kpi-approved">0</h3>
-                                <p class="kpi-sub-desc">Verified successfully</p>
+                                <p class="kpi-sub-desc">Telah diverifikasi</p>
                             </div>
                         </div>
 
                     </div>
 
                     <!-- Charts Visualization Row -->
-                    <div class="charts-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 0; flex: 1; min-height: 0;">
+                    <div class="charts-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; margin-bottom: 16px;">
                         <!-- Progres Petugas -->
-                        <div class="chart-box glass-panel-inner" style="display: flex; flex-direction: column; height: 100%; min-height: 0;">
+                        <div class="chart-box glass-panel-inner" style="display: flex; flex-direction: column; height: 400px;">
                             <div class="chart-header" style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-glass);">
                                 <h3 style="font-size: 14px;"><i class="ri-user-star-line"></i> Progres Petugas</h3>
                                 <button id="btn-sort-petugas" style="background: transparent; border: 1px solid var(--border-glass); color: var(--text-muted); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; transition: all 0.2s;"><i class="ri-sort-desc"></i> Sort</button>
                             </div>
-                            <div class="chart-body custom-scrollbar" id="list-progres-petugas" style="flex: 1; overflow-y: auto; padding: 4px 12px; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; min-height: 0;">
+                            <div class="chart-body custom-scrollbar" id="list-progres-petugas" style="flex: 1; overflow-y: auto; padding: 4px 0; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; min-height: 0;">
                                 <!-- Dynamic list -->
                             </div>
                         </div>
 
                         <!-- Progres Kecamatan -->
-                        <div class="chart-box glass-panel-inner" style="display: flex; flex-direction: column; height: 100%; min-height: 0;">
+                        <div class="chart-box glass-panel-inner" style="display: flex; flex-direction: column; height: 400px;">
                             <div class="chart-header" style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-glass);">
                                 <h3 style="font-size: 14px;"><i class="ri-map-pin-user-line"></i> Progres Kecamatan</h3>
                                 <button id="btn-sort-kecamatan" style="background: transparent; border: 1px solid var(--border-glass); color: var(--text-muted); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; transition: all 0.2s;"><i class="ri-sort-desc"></i> Sort</button>
                             </div>
-                            <div class="chart-body custom-scrollbar" id="list-progres-kecamatan" style="flex: 1; overflow-y: auto; padding: 4px 12px; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; min-height: 0;">
+                            <div class="chart-body custom-scrollbar" id="list-progres-kecamatan" style="flex: 1; overflow-y: auto; padding: 4px 0; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; min-height: 0;">
                                 <!-- Dynamic list -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Progres PJ & PML Tables -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; margin-top: 0;">
+                        <!-- Progres PJ Table -->
+                        <div class="chart-box glass-panel-inner" style="display: flex; flex-direction: column; height: 400px;">
+                            <div class="chart-header" style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-glass);">
+                                <h3 style="font-size: 14px;"><i class="ri-map-pin-user-fill"></i> Progres PJ Kecamatan</h3>
+                                <button id="btn-sort-pj" style="background: transparent; border: 1px solid var(--border-glass); color: var(--text-muted); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; transition: all 0.2s;"><i class="ri-sort-desc"></i> Sort</button>
+                            </div>
+                            <div class="chart-body custom-scrollbar" id="list-progres-pj" style="flex: 1; overflow-y: auto; padding: 4px 0; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; min-height: 0;">
+                                <!-- Dynamic rows -->
+                            </div>
+                        </div>
+
+                        <!-- Progres PML Table -->
+                        <div class="chart-box glass-panel-inner" style="display: flex; flex-direction: column; height: 400px;">
+                            <div class="chart-header" style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-glass);">
+                                <h3 style="font-size: 14px;"><i class="ri-user-star-fill"></i> Progres PML</h3>
+                                <button id="btn-sort-pml" style="background: transparent; border: 1px solid var(--border-glass); color: var(--text-muted); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; transition: all 0.2s;"><i class="ri-sort-desc"></i> Sort</button>
+                            </div>
+                            <div class="chart-body custom-scrollbar" id="list-progres-pml" style="flex: 1; overflow-y: auto; padding: 4px 0; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; min-height: 0;">
+                                <!-- Dynamic rows -->
                             </div>
                         </div>
                     </div>
                 </section>
 
+
                 <!-- Korwil List Panel -->
                 <section id="view-korwil" class="view-section">
                     <div class="section-title-block">
                         <h1>Koordinator & PML Overview</h1>
-                        <p>Hierarchical progress tracking by Subdistrict Coordinator and PML.</p>
+                        <p>Pantau progres pendataan secara hierarkis berdasarkan PJ Kecamatan dan PML.</p>
                     </div>
                     <div class="filter-bar glass-panel-inner" id="filters-korwil" style="margin-bottom: 16px;">
                         <div class="filter-item">
-                            <label for="filter-korwil-koseka">Koseka</label>
+                            <label for="filter-korwil-koseka">PJ Kecamatan</label>
                             <select id="filter-korwil-koseka" class="glass-select">
-                                <option value="">Semua Koseka</option>
+                                <option value="">Semua PJ Kecamatan</option>
                             </select>
                         </div>
                         <div class="filter-item">
@@ -292,13 +325,16 @@
 
                     <div class="table-container glass-panel-inner">
                         <div class="table-header">
-                            <h3><i class="ri-team-line"></i> Supervisor Hierarchy Progress</h3>
+                            <h3 style="font-family:'Outfit',sans-serif; font-size:16px; font-weight:700; color:var(--text-title); display:flex; align-items:center; gap:8px;">
+                                <i class="ri-node-tree" style="font-size:20px; background:var(--accent-grad); background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent;"></i>
+                                Progres Hierarki Pengawasan
+                            </h3>
                         </div>
                         <div class="table-wrapper">
                             <table id="table-korwil" class="premium-table">
                                 <thead>
                                     <tr>
-                                        <th>Koseka (Koordinator Kecamatan)</th>
+                                        <th>PJ Kecamatan</th>
                                         <th>PML (Pengawas)</th>
                                         <th>PCL (Petugas)</th>
                                         <th>Target Dokumen</th>
@@ -323,13 +359,13 @@
                 <!-- Petugas List Panel -->
                 <section id="view-petugas" class="view-section" style="display: none !important;">
                     <div class="section-title-block">
-                        <h1>Petugas Overview</h1>
-                        <p>Track progress and validation performance per officer. Click a row to see detailed SLS breakdown.</p>
+                        <h1>Progres Petugas (PCL)</h1>
+                        <p>Pantau progres dan kinerja validasi per petugas. Klik baris untuk melihat rincian SLS.</p>
                     </div>
                     
                     <div class="table-container glass-panel-inner">
                         <div class="table-header">
-                            <h3><i class="ri-user-line"></i> Officer Progress Table</h3>
+                            <h3><i class="ri-user-line"></i> Tabel Progres Petugas</h3>
                         </div>
                         <div class="table-wrapper">
                             <table id="table-petugas" class="premium-table">
@@ -338,7 +374,7 @@
                                         <th>Nama Petugas</th>
                                         <th>Email</th>
                                         <th>PML</th>
-                                        <th>Koseka</th>
+                                        <th>PJ Kecamatan</th>
                                         <th>Target</th>
                                         <th>Open</th>
                                         <th>Draft</th>
@@ -361,7 +397,7 @@
                 <section id="view-sls" class="view-section" style="display: none !important;">
                     <div class="section-title-block">
                         <h1>Wilayah Kerja (SLS)</h1>
-                        <p>Granular breakdown of SLS status and administrative hierarchy.</p>
+                        <p>Rincian status SLS dan hirarki administrasi wilayah.</p>
                     </div>
 
                     <!-- Filter Bar -->
@@ -394,9 +430,9 @@
                             </select>
                         </div>
                         <div class="filter-item">
-                            <label for="filter-koseka">Koseka</label>
+                            <label for="filter-koseka">PJ Kecamatan</label>
                             <select id="filter-koseka" class="glass-select">
-                                <option value="">Semua Koseka</option>
+                                <option value="">Semua PJ Kecamatan</option>
                             </select>
                         </div>
                         <button id="btn-reset-filters" class="btn-reset"><i class="ri-refresh-line"></i> Reset</button>
@@ -404,7 +440,7 @@
 
                     <div class="table-container glass-panel-inner" style="margin-top: 16px;">
                         <div class="table-header">
-                            <h3><i class="ri-map-2-line"></i> SLS Assignments Status</h3>
+                            <h3><i class="ri-map-2-line"></i> Status Penugasan SLS</h3>
                         </div>
                         <div class="table-wrapper">
                             <table id="table-sls" class="premium-table">
@@ -417,7 +453,7 @@
                                         <th>Kecamatan</th>
                                         <th>Petugas (PCL)</th>
                                         <th>PML</th>
-                                        <th>Koseka</th>
+                                        <th>PJ Kecamatan</th>
                                         <th>Target</th>
                                         <th>Open</th>
                                         <th>Draft</th>
@@ -437,19 +473,19 @@
                 <!-- Hierarchy Monitor View -->
                 <section id="view-hierarchy" class="view-section">
                     <div class="section-title-block">
-                        <h1>Sonoma Hierarchy Explorer</h1>
-                        <p>Lacak progres dan hambatan pendataan secara hierarkis (Koseka ➔ PML ➔ PCL) secara interaktif.</p>
+                        <h1>Monitor Hierarki Wilayah</h1>
+                        <p>Lacak progres pendataan secara hierarkis (PJ Kecamatan &rarr; PML &rarr; PCL) secara interaktif.</p>
                     </div>
                     
                     <div class="hierarchy-container">
-                        <!-- Column 1: Koseka -->
+                        <!-- Column 1: PJ Kecamatan -->
                         <div class="hierarchy-column" id="col-koseka">
                             <div class="column-header">
                                 <span><i class="ri-government-line"></i> Koordinator Kecamatan</span>
                                 <span class="badge-count" id="count-koseka">0</span>
                             </div>
                             <div class="column-content" id="list-koseka">
-                                <!-- Dynamic Koseka list -->
+                                <!-- Daftar PJ Kecamatan -->
                             </div>
                         </div>
 
@@ -462,7 +498,7 @@
                             <div class="column-content" id="list-pml">
                                 <div class="empty-column-state">
                                     <i class="ri-arrow-left-line"></i>
-                                    <p>Pilih Koseka terlebih dahulu</p>
+                                    <p>Pilih PJ Kecamatan terlebih dahulu</p>
                                 </div>
                             </div>
                         </div>
@@ -513,7 +549,7 @@
             <div class="modal-body">
                 <div class="modal-meta-grid">
                     <div class="modal-meta-card glass-panel-inner">
-                        <span class="meta-label">Koordinator (Koseka)</span>
+                        <span class="meta-label">PJ Kecamatan</span>
                         <strong id="modal-petugas-koseka">-</strong>
                     </div>
                     <div class="modal-meta-card glass-panel-inner">
@@ -557,6 +593,6 @@
     </div>
 
     <!-- Custom JS script -->
-    <script src="js/app.js?v=37"></script>
+    <script src="js/app.js?v=52"></script>
 </body>
 </html>

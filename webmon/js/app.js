@@ -12,15 +12,124 @@ let rawSlsData = [];
 let rawKorwilData = [];
 
 let slsAssignments = []; // Unified data array
+let sortPjDesc = true;
+let sortPmlDesc = true;
 let petugasData = {};     // Aggregate by email
 let pmlData = {};         // Aggregate by PML name
-let kosekaData = {};       // Aggregate by Koseka name
+let kosekaData = {};       // Aggregate by PJ Kecamatan name
 let kecamatanData = {};   // Aggregate by Kecamatan name
 
 // DOM Elements
 const elLoader = document.getElementById('loader');
 const elAppContent = document.getElementById('app-content');
 const elLastSync = document.getElementById('last-sync');
+
+
+function getHeatmapColor(val, min, max) {
+    if (min === max) return 'rgba(255,255,255,0.2)';
+    const ratio = (val - min) / (max - min);
+    // Red to White to Green
+    // 0 = Red (rgb 239 68 68), 0.5 = White (rgb 255 255 255), 1 = Green (rgb 34 197 94)
+    // We'll use lighter colors for background: #fca5a5 (red), #ffffff, #86efac (green)
+    let r, g, b;
+    if (ratio < 0.5) {
+        // Red to White
+        const pct = ratio / 0.5;
+        r = 252 + (255 - 252) * pct; // 252 -> 255
+        g = 165 + (255 - 165) * pct; // 165 -> 255
+        b = 165 + (255 - 165) * pct; // 165 -> 255
+    } else {
+        // White to Green
+        const pct = (ratio - 0.5) / 0.5;
+        r = 255 + (134 - 255) * pct; // 255 -> 134
+        g = 255 + (239 - 255) * pct; // 255 -> 239
+        b = 255 + (172 - 255) * pct; // 255 -> 172
+    }
+    return `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, 0.85)`;
+}
+
+function getProgressBarColor(pct) {
+    const clamped = Math.min(100, Math.max(0, pct));
+    // HSL: 0 = Red, 60 = Yellow, 120 = Green.
+    // We map 0-100% directly to 0-120 Hue.
+    const hue = Math.round((clamped / 100) * 120);
+    return `hsl(${hue}, 85%, 45%)`;
+}
+
+function makeTripleBar(name, pendataan, submit, approve) {
+    const colPen = getProgressBarColor(pendataan);
+    const colSub = getProgressBarColor(submit);
+    const colApp = getProgressBarColor(approve);
+    const wPen   = Math.min(100, pendataan).toFixed(1);
+    const wSub   = Math.min(100, submit).toFixed(1);
+    const wApp   = Math.min(100, approve).toFixed(1);
+    return `
+        <div class="pj-pml-card">
+            <div class="pj-pml-name" title="${name}">${name}</div>
+            <div class="pj-pml-bars">
+                <div class="pj-pml-bar-row">
+                    <span class="pj-pml-label">Pendataan</span>
+                    <div class="pj-pml-track">
+                        <div class="pj-pml-fill" style="width:${wPen}%; background:${colPen};"></div>
+                    </div>
+                    <span class="pj-pml-pct">${pendataan.toFixed(1)}%</span>
+                </div>
+                <div class="pj-pml-bar-row">
+                    <span class="pj-pml-label">Submit</span>
+                    <div class="pj-pml-track">
+                        <div class="pj-pml-fill" style="width:${wSub}%; background:${colSub};"></div>
+                    </div>
+                    <span class="pj-pml-pct">${submit.toFixed(1)}%</span>
+                </div>
+                <div class="pj-pml-bar-row">
+                    <span class="pj-pml-label">Approve</span>
+                    <div class="pj-pml-track">
+                        <div class="pj-pml-fill" style="width:${wApp}%; background:${colApp};"></div>
+                    </div>
+                    <span class="pj-pml-pct">${approve.toFixed(1)}%</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderOverviewTables() {
+    // ── Progres PJ (PJ Kecamatan) ──────────────────────────
+    const listPj = document.getElementById('list-progres-pj');
+    if (listPj) {
+        let pjList = [];
+        Object.keys(kosekaData).forEach(k => {
+            const data = kosekaData[k];
+            const total = data.totalTarget || 0;
+            if (total === 0) return;
+            const tersubmit = total - data.open;
+            const pctPendataan = tersubmit / total * 100;
+            const pctSubmit = data.submitted / total * 100;
+            const pctApprove = data.approved / total * 100;
+            pjList.push({ name: k, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove });
+        });
+        pjList.sort((a, b) => sortPjDesc ? b.pendataan - a.pendataan : a.pendataan - b.pendataan);
+        listPj.innerHTML = pjList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve)).join('');
+    }
+
+    // ── Progres PML ────────────────────────────────
+    const listPml = document.getElementById('list-progres-pml');
+    if (listPml) {
+        let pmlList = [];
+        Object.keys(pmlData).forEach(p => {
+            const data = pmlData[p];
+            const total = data.totalTarget || 0;
+            if (total === 0) return;
+            const tersubmit = total - data.open;
+            const pctPendataan = tersubmit / total * 100;
+            const pctSubmit = data.submitted / total * 100;
+            const pctApprove = data.approved / total * 100;
+            pmlList.push({ name: p, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove });
+        });
+        pmlList.sort((a, b) => sortPmlDesc ? b.pendataan - a.pendataan : a.pendataan - b.pendataan);
+        listPml.innerHTML = pmlList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve)).join('');
+    }
+}
 
 document.addEventListener("DOMContentLoaded", () => {
     initApp();
@@ -275,7 +384,7 @@ function processAllData() {
         pm.pcls.add(item.email);
         pm.slsCount++;
 
-        // Koseka Aggregate
+        // PJ Kecamatan Aggregate
         const kosekaKey = item.koseka;
         if (!kosekaData[kosekaKey]) {
             kosekaData[kosekaKey] = {
@@ -342,16 +451,16 @@ function updateDashboard() {
 
     // Populate overview numbers with animation
     animateValue("kpi-assignment", 0, globalTarget, 1000);
-    animateValue("kpi-open", 0, gOpen, 1000, ` <span style="font-size: 14px; color: rgba(255,255,255,0.5);">(${globalTarget > 0 ? ((gOpen/globalTarget)*100).toFixed(1) : 0}%)</span>`);
-    animateValue("kpi-draft", 0, gDraft, 1000, ` <span style="font-size: 14px; color: rgba(255,255,255,0.5);">(${globalTarget > 0 ? ((gDraft/globalTarget)*100).toFixed(1) : 0}%)</span>`);
-    animateValue("kpi-submitted", 0, gSub, 1000, ` <span style="font-size: 14px; color: rgba(255,255,255,0.5);">(${globalTarget > 0 ? ((gSub/globalTarget)*100).toFixed(1) : 0}%)</span>`);
-    animateValue("kpi-rejected", 0, gRej, 1000, ` <span style="font-size: 14px; color: rgba(255,255,255,0.5);">(${globalTarget > 0 ? ((gRej/globalTarget)*100).toFixed(1) : 0}%)</span>`);
-    animateValue("kpi-revoked", 0, gRev, 1000, ` <span style="font-size: 14px; color: rgba(255,255,255,0.5);">(${globalTarget > 0 ? ((gRev/globalTarget)*100).toFixed(1) : 0}%)</span>`);
-    animateValue("kpi-approved", 0, gApp, 1000, ` <span style="font-size: 14px; color: rgba(255,255,255,0.5);">(${globalTarget > 0 ? ((gApp/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+    animateValue("kpi-open", 0, gOpen, 1000, ` <span style="font-size: 12px; color: var(--color-open); opacity: 0.75;">(${globalTarget > 0 ? ((gOpen/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+    animateValue("kpi-draft", 0, gDraft, 1000, ` <span style="font-size: 12px; color: var(--color-draft); opacity: 0.75;">(${globalTarget > 0 ? ((gDraft/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+    animateValue("kpi-submitted", 0, gSub, 1000, ` <span style="font-size: 12px; color: var(--color-submitted); opacity: 0.75;">(${globalTarget > 0 ? ((gSub/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+    animateValue("kpi-rejected", 0, gRej, 1000, ` <span style="font-size: 12px; color: var(--color-rejected); opacity: 0.75;">(${globalTarget > 0 ? ((gRej/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+    animateValue("kpi-revoked", 0, gRev, 1000, ` <span style="font-size: 12px; color: var(--color-revoked); opacity: 0.75;">(${globalTarget > 0 ? ((gRev/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+    animateValue("kpi-approved", 0, gApp, 1000, ` <span style="font-size: 12px; color: var(--color-approved); opacity: 0.75;">(${globalTarget > 0 ? ((gApp/globalTarget)*100).toFixed(1) : 0}%)</span>`);
 
     // Calculate and animate Assignment Tersubmit percentage (excluding Open & Draft)
     const tersubmitCount = globalTarget - gOpen - gDraft;
-    const completionPct = globalTarget > 0 ? ((tersubmitCount / globalTarget) * 100).toFixed(1) : 0;
+    const completionPct = globalTarget > 0 ? ((tersubmitCount / globalTarget) * 100).toFixed(2) : 0;
     animateValuePercent("kpi-completion-percentage", 0, parseFloat(completionPct), 1000);
     
     const elFill = document.getElementById("kpi-progress-fill");
@@ -362,7 +471,7 @@ function updateDashboard() {
     }
 
     // Render Charts
-    Chart.defaults.color = '#a1a1aa';
+    Chart.defaults.color = '#6e6e73';
     Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Inter', sans-serif";
 
     // Update Horizontal Stacked Bar Chart with Chart.js
@@ -375,26 +484,51 @@ function updateDashboard() {
             data: {
                 labels: ['Status Distribution'],
                 datasets: [
-                    { label: 'Open', data: [gOpen], backgroundColor: '#ffffffd4', barPercentage: 0.8 },
-                    { label: 'Draft', data: [gDraft], backgroundColor: '#ff92fd', barPercentage: 0.8 },
-                    { label: 'Submitted', data: [gSub], backgroundColor: '#52d4ff', barPercentage: 0.8 },
-                    { label: 'Rejected', data: [gRej], backgroundColor: '#ef4444', barPercentage: 0.8 },
-                    { label: 'Revoked', data: [gRev], backgroundColor: '#ffd153', barPercentage: 0.8 },
-                    { label: 'Approved', data: [gApp], backgroundColor: '#10b981', barPercentage: 0.8 }
+                    { label: 'Open',      data: [gOpen],  backgroundColor: '#9ca3af', barPercentage: 0.9 },
+                    { label: 'Draft',     data: [gDraft], backgroundColor: '#a855f7', barPercentage: 0.9 },
+                    { label: 'Submitted', data: [gSub],   backgroundColor: '#0ea5e9', barPercentage: 0.9 },
+                    { label: 'Rejected',  data: [gRej],   backgroundColor: '#ef4444', barPercentage: 0.9 },
+                    { label: 'Revoked',   data: [gRev],   backgroundColor: '#f59e0b', barPercentage: 0.9 },
+                    { label: 'Approved',  data: [gApp],   backgroundColor: '#10b981', barPercentage: 0.9 }
                 ]
             },
             options: {
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
+                borderRadius: function(context) {
+                    const chart = context.chart;
+                    const datasetIndex = context.datasetIndex;
+                    const dataIndex = context.dataIndex;
+                    let firstVisible = -1;
+                    let lastVisible = -1;
+                    for (let i = 0; i < chart.data.datasets.length; i++) {
+                        if (chart.data.datasets[i].data[dataIndex] > 0) {
+                            if (firstVisible === -1) firstVisible = i;
+                            lastVisible = i;
+                        }
+                    }
+                    if (datasetIndex === firstVisible && datasetIndex === lastVisible) {
+                        return 6;
+                    } else if (datasetIndex === firstVisible) {
+                        return {topLeft: 6, bottomLeft: 6, topRight: 0, bottomRight: 0};
+                    } else if (datasetIndex === lastVisible) {
+                        return {topRight: 6, bottomRight: 6, topLeft: 0, bottomLeft: 0};
+                    } else {
+                        return 0;
+                    }
+                },
+                borderSkipped: false,
+                barPercentage: 1.0,
+                categoryPercentage: 1.0,
                 scales: {
-                    x: { stacked: true, display: false },
+                    x: { stacked: true, display: false, max: globalTarget },
                     y: { stacked: true, display: false }
                 },
                 plugins: {
                     legend: {
                         position: 'bottom',
-                        labels: { color: '#e4e4e7', usePointStyle: true, boxWidth: 6, font: { size: 9 }, padding: 10 }
+                        labels: { color: '#6e6e73', usePointStyle: true, pointStyle: 'circle', boxWidth: 8, font: { size: 10 }, padding: 14 }
                     },
                     tooltip: {
                         callbacks: {
@@ -413,76 +547,43 @@ function updateDashboard() {
     // Render List Progres Petugas & Kecamatan
     renderProgresPetugasList();
     renderProgresKecamatanList();
+    renderOverviewTables();
 }
 
 function renderProgresPetugasList() {
     const listContainer = document.getElementById('list-progres-petugas');
     if (!listContainer) return;
-    listContainer.innerHTML = '';
-
-    const pList = Object.values(petugasData).map(p => {
-        const tersubmit = p.totalTarget - p.open - p.draft;
-        const pct = p.totalTarget > 0 ? ((tersubmit / p.totalTarget) * 100).toFixed(1) : 0;
-        return { ...p, tersubmit, pct };
-    });
-
-    pList.sort((a, b) => sortPetugasDesc ? b.tersubmit - a.tersubmit : a.tersubmit - b.tersubmit);
-
-    pList.forEach(p => {
-        const item = document.createElement('div');
-        item.className = 'hierarchy-card glass-panel-inner';
-        item.style.cursor = 'default';
-        
-        item.innerHTML = `
-            <div class="hierarchy-card-header">
-                <span class="hierarchy-card-title" title="${p.namaLengkap}">${p.namaLengkap}</span>
-                <span class="hierarchy-card-value" style="color: var(--accent-emerald);">${p.tersubmit} <span style="font-size: 10px; font-weight: normal; color: var(--text-muted);">/ ${p.totalTarget}</span></span>
-            </div>
-            <div class="hierarchy-card-meta">
-                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70%;">${p.koseka}</span>
-                <span style="font-weight: 600;">${p.pct}%</span>
-            </div>
-            <div style="height: 4px; border-radius: 2px; background: rgba(255,255,255,0.05); margin-top: 8px; overflow: hidden;">
-                <div style="height: 100%; border-radius: 2px; width: ${p.pct}%; background: linear-gradient(90deg, #8b5cf6, #3b82f6);"></div>
-            </div>
-        `;
-        listContainer.appendChild(item);
-    });
+    
+    let pList = Object.values(petugasData).map(p => {
+        const total = p.totalTarget || 0;
+        if (total === 0) return null;
+        const tersubmit = total - p.open;
+        const pctPendataan = tersubmit / total * 100;
+        const pctSubmit = p.submitted / total * 100;
+        const pctApprove = p.approved / total * 100;
+        return { name: p.namaLengkap, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove };
+    }).filter(Boolean);
+    
+    pList.sort((a, b) => sortPetugasDesc ? b.pendataan - a.pendataan : a.pendataan - b.pendataan);
+    listContainer.innerHTML = pList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve)).join('');
 }
 
 function renderProgresKecamatanList() {
     const listContainer = document.getElementById('list-progres-kecamatan');
     if (!listContainer) return;
-    listContainer.innerHTML = '';
-
-    const kList = Object.values(kecamatanData).map(k => {
-        const tersubmit = k.totalTarget - k.open - k.draft;
-        const pct = k.totalTarget > 0 ? ((tersubmit / k.totalTarget) * 100).toFixed(1) : 0;
-        return { ...k, tersubmit, pct };
-    });
-
-    kList.sort((a, b) => sortKecamatanDesc ? b.tersubmit - a.tersubmit : a.tersubmit - b.tersubmit);
-
-    kList.forEach(k => {
-        const item = document.createElement('div');
-        item.className = 'hierarchy-card glass-panel-inner';
-        item.style.cursor = 'default';
-        
-        item.innerHTML = `
-            <div class="hierarchy-card-header">
-                <span class="hierarchy-card-title" title="${k.kecamatan}">${k.kecamatan}</span>
-                <span class="hierarchy-card-value" style="color: var(--accent-emerald);">${k.tersubmit} <span style="font-size: 10px; font-weight: normal; color: var(--text-muted);">/ ${k.totalTarget}</span></span>
-            </div>
-            <div class="hierarchy-card-meta">
-                <span>${k.slsCount} SLS</span>
-                <span style="font-weight: 600;">${k.pct}%</span>
-            </div>
-            <div style="height: 4px; border-radius: 2px; background: rgba(255,255,255,0.05); margin-top: 8px; overflow: hidden;">
-                <div style="height: 100%; border-radius: 2px; width: ${k.pct}%; background: linear-gradient(90deg, #8b5cf6, #3b82f6);"></div>
-            </div>
-        `;
-        listContainer.appendChild(item);
-    });
+    
+    let kList = Object.values(kecamatanData).map(k => {
+        const total = k.totalTarget || 0;
+        if (total === 0) return null;
+        const tersubmit = total - k.open;
+        const pctPendataan = tersubmit / total * 100;
+        const pctSubmit = k.submitted / total * 100;
+        const pctApprove = k.approved / total * 100;
+        return { name: k.kecamatan, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove };
+    }).filter(Boolean);
+    
+    kList.sort((a, b) => sortKecamatanDesc ? b.pendataan - a.pendataan : a.pendataan - b.pendataan);
+    listContainer.innerHTML = kList.map(k => makeTripleBar(k.name, k.pendataan, k.submit, k.approve)).join('');
 }
 
 function renderKorwilTable() {
@@ -643,7 +744,8 @@ function renderSlsTable() {
     const filterStat = document.getElementById('filter-status').value;
     const filterPml = document.getElementById('filter-pml').value;
     const filterKoseka = document.getElementById('filter-koseka').value;
-    const searchVal = document.getElementById('global-search').value.toLowerCase();
+    const searchEl = document.getElementById('global-search');
+    const searchVal = searchEl ? searchEl.value.toLowerCase() : '';
 
     slsAssignments.forEach(s => {
         const slsStatus = getSlsStatus(s);
@@ -700,7 +802,7 @@ function populateFilterDropdowns() {
 
     populateSelect('filter-kecamatan', Array.from(kecamations).sort(), "Semua Kecamatan");
     populateSelect('filter-pml', Array.from(pmls).sort(), "Semua PML");
-    populateSelect('filter-koseka', Array.from(kosekas).sort(), "Semua Koseka");
+    populateSelect('filter-koseka', Array.from(kosekas).sort(), "Semua PJ Kecamatan");
 
     // Dynamic Desa dropdown based on selected Kecamatan
     updateDesaDropdown();
@@ -733,6 +835,7 @@ function populateSelect(id, list, placeholder) {
         if (item === currentValue) opt.selected = true;
         select.appendChild(opt);
     });
+    applyCustomSelect(select);
 }
 
 function setupFilters() {
@@ -749,10 +852,12 @@ function setupFilters() {
 
     document.getElementById('btn-reset-filters').addEventListener('click', () => {
         filters.forEach(id => {
-            document.getElementById(id).value = '';
+            const sel = document.getElementById(id);
+            if (sel.value !== '') {
+                sel.value = '';
+                sel.dispatchEvent(new Event('change'));
+            }
         });
-        updateDesaDropdown();
-        renderSlsTable();
     });
 }
 
@@ -761,7 +866,7 @@ function populateKorwilFilterDropdowns() {
     Object.values(petugasData).forEach(p => {
         if (p.koseka) kosekas.add(p.koseka);
     });
-    populateSelect('filter-korwil-koseka', Array.from(kosekas).sort(), "Semua Koseka");
+    populateSelect('filter-korwil-koseka', Array.from(kosekas).sort(), "Semua PJ Kecamatan");
     
     updateKorwilPmlDropdown();
 }
@@ -810,9 +915,13 @@ function setupKorwilFilters() {
     const resetBtn = document.getElementById('btn-reset-korwil-filters');
     if (resetBtn) {
         resetBtn.addEventListener('click', () => {
-            document.getElementById('filter-korwil-koseka').value = '';
-            updateKorwilPmlDropdown();
-            renderKorwilTable();
+            ['filter-korwil-koseka', 'filter-korwil-pml', 'filter-korwil-pcl'].forEach(id => {
+                const sel = document.getElementById(id);
+                if (sel.value !== '') {
+                    sel.value = '';
+                    sel.dispatchEvent(new Event('change'));
+                }
+            });
         });
     }
 }
@@ -836,6 +945,22 @@ function setupModal() {
 }
 
 function setupSorts() {
+    const btnSortPj = document.getElementById('btn-sort-pj');
+    if (btnSortPj) {
+        btnSortPj.addEventListener('click', () => {
+            sortPjDesc = !sortPjDesc;
+            btnSortPj.innerHTML = sortPjDesc ? '<i class="ri-sort-desc"></i> Sort' : '<i class="ri-sort-asc"></i> Sort';
+            renderOverviewTables();
+        });
+    }
+    const btnSortPml = document.getElementById('btn-sort-pml');
+    if (btnSortPml) {
+        btnSortPml.addEventListener('click', () => {
+            sortPmlDesc = !sortPmlDesc;
+            btnSortPml.innerHTML = sortPmlDesc ? '<i class="ri-sort-desc"></i> Sort' : '<i class="ri-sort-asc"></i> Sort';
+            renderOverviewTables();
+        });
+    }
     const btnSortPetugas = document.getElementById('btn-sort-petugas');
     if (btnSortPetugas) {
         btnSortPetugas.addEventListener('click', () => {
@@ -851,6 +976,7 @@ function setupSorts() {
             sortKecamatanDesc = !sortKecamatanDesc;
             btnSortKecamatan.innerHTML = sortKecamatanDesc ? '<i class="ri-sort-desc"></i> Sort' : '<i class="ri-sort-asc"></i> Sort';
             renderProgresKecamatanList();
+    renderOverviewTables();
         });
     }
 }
@@ -908,8 +1034,10 @@ function setupNavigation() {
 }
 
 function setupSearch() {
-    document.getElementById('global-search').addEventListener('input', (e) => {
-        const val = e.target.value.toLowerCase();
+    const searchInput = document.getElementById('global-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            const val = e.target.value.toLowerCase();
         
         // Filter Petugas
         const trsP = document.querySelectorAll('#table-petugas tbody tr');
@@ -927,7 +1055,8 @@ function setupSearch() {
 
         // Filter SLS
         renderSlsTable();
-    });
+        });
+    }
 }
 
 // Utility: Number Animation
@@ -972,14 +1101,14 @@ function animateValuePercent(id, start, end, duration) {
         if (!startTime) startTime = timestamp;
         let progress = Math.min((timestamp - startTime) / duration, 1);
         let easeOut = 1 - Math.pow(1 - progress, 3);
-        let current = (easeOut * (end - start) + start).toFixed(1);
+        let current = (easeOut * (end - start) + start).toFixed(2);
         
         obj.innerHTML = current + '%';
         
         if (progress < 1) {
             window.requestAnimationFrame(step);
         } else {
-            obj.innerHTML = end.toFixed(1) + '%';
+            obj.innerHTML = end.toFixed(2) + '%';
         }
     }
     window.requestAnimationFrame(step);
@@ -998,7 +1127,7 @@ function renderHierarchyView() {
     document.getElementById('list-pml').innerHTML = `
         <div class="empty-column-state">
             <i class="ri-arrow-left-line"></i>
-            <p>Pilih Koseka terlebih dahulu</p>
+            <p>Pilih PJ Kecamatan terlebih dahulu</p>
         </div>
     `;
     document.getElementById('list-pcl').innerHTML = `
@@ -1028,7 +1157,7 @@ function renderHierarchyView() {
         const pendataanVal = total > 0 ? ((total - data.open) / total * 100).toFixed(1) : "0.0";
         
         const card = document.createElement('div');
-        card.className = 'hierarchy-card glass-panel-inner';
+        card.className = 'hierarchy-card';
         card.innerHTML = `
             <div class="hierarchy-card-header" style="margin-bottom: 6px;">
                 <span class="hierarchy-card-title" title="${koseka}">${koseka}</span>
@@ -1102,7 +1231,7 @@ function renderPmlList(kosekaName) {
         const pendataanVal = total > 0 ? ((total - data.open) / total * 100).toFixed(1) : "0.0";
 
         const card = document.createElement('div');
-        card.className = 'hierarchy-card glass-panel-inner';
+        card.className = 'hierarchy-card';
         card.innerHTML = `
             <div class="hierarchy-card-header" style="margin-bottom: 6px;">
                 <span class="hierarchy-card-title" title="${pml}">${pml}</span>
@@ -1170,7 +1299,7 @@ function renderPclList(pmlName) {
         const pendataanVal = total > 0 ? ((total - data.open) / total * 100).toFixed(1) : "0.0";
 
         const card = document.createElement('div');
-        card.className = 'hierarchy-card glass-panel-inner';
+        card.className = 'hierarchy-card';
         card.innerHTML = `
             <div class="hierarchy-card-header" style="margin-bottom: 6px;">
                 <span class="hierarchy-card-title" title="${data.namaLengkap}">${data.namaLengkap}</span>
@@ -1230,15 +1359,15 @@ function renderPclDetail(email) {
 
             <!-- Stats Grid -->
             <div class="detail-stats-grid">
-                <div class="detail-stat-card glass-panel-inner">
-                    <span class="label">Koseka</span>
+                <div class="detail-stat-card">
+                    <span class="label">PJ Kecamatan</span>
                     <strong class="value" title="${data.koseka}">${data.koseka}</strong>
                 </div>
-                <div class="detail-stat-card glass-panel-inner">
+                <div class="detail-stat-card">
                     <span class="label">PML</span>
                     <strong class="value" title="${data.pml}">${data.pml}</strong>
                 </div>
-                <div class="detail-stat-card glass-panel-inner">
+                <div class="detail-stat-card">
                     <span class="label" title="Submitted + Approved">Penyelesaian Muatan</span>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
                         <strong class="value" style="font-size:14px;">${data.approved + data.submitted} / ${total}</strong>
@@ -1248,7 +1377,7 @@ function renderPclDetail(email) {
                         <div class="hierarchy-progress-fill" style="width: ${progressVal}%; background: var(--color-approved);"></div>
                     </div>
                 </div>
-                <div class="detail-stat-card glass-panel-inner">
+                <div class="detail-stat-card">
                     <span class="label" title="Semua status selain OPEN">Progres Pendataan</span>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
                         <strong class="value" style="font-size:14px;">${total - data.open} / ${total}</strong>
@@ -1262,27 +1391,27 @@ function renderPclDetail(email) {
 
             <!-- Status Distribution Breakdown -->
             <div class="detail-stats-grid" style="grid-template-columns: repeat(3, 1fr); gap:6px;">
-                <div class="detail-stat-card glass-panel-inner" style="border-left: 2px solid var(--color-open); padding: 6px;">
+                <div class="detail-stat-card" style="border-left: 2px solid var(--color-open); padding: 6px;">
                     <span class="label" style="font-size:8px;">Open</span>
                     <strong class="value" style="font-size:12px; color:var(--color-open);">${data.open} <span style="font-size:10px; opacity:0.8; font-weight:normal;">(${total > 0 ? (data.open/total*100).toFixed(1) : "0.0"}%)</span></strong>
                 </div>
-                <div class="detail-stat-card glass-panel-inner" style="border-left: 2px solid var(--color-draft); padding: 6px;">
+                <div class="detail-stat-card" style="border-left: 2px solid var(--color-draft); padding: 6px;">
                     <span class="label" style="font-size:8px;">Draft</span>
                     <strong class="value" style="font-size:12px; color:var(--color-draft);">${data.draft} <span style="font-size:10px; opacity:0.8; font-weight:normal;">(${total > 0 ? (data.draft/total*100).toFixed(1) : "0.0"}%)</span></strong>
                 </div>
-                <div class="detail-stat-card glass-panel-inner" style="border-left: 2px solid var(--color-submitted); padding: 6px;">
+                <div class="detail-stat-card" style="border-left: 2px solid var(--color-submitted); padding: 6px;">
                     <span class="label" style="font-size:8px;">Submitted</span>
                     <strong class="value" style="font-size:12px; color:var(--color-submitted);">${data.submitted} <span style="font-size:10px; opacity:0.8; font-weight:normal;">(${total > 0 ? (data.submitted/total*100).toFixed(1) : "0.0"}%)</span></strong>
                 </div>
-                <div class="detail-stat-card glass-panel-inner" style="border-left: 2px solid var(--color-rejected); padding: 6px;">
+                <div class="detail-stat-card" style="border-left: 2px solid var(--color-rejected); padding: 6px;">
                     <span class="label" style="font-size:8px;">Rejected</span>
                     <strong class="value" style="font-size:12px; color:var(--color-rejected);">${data.rejected} <span style="font-size:10px; opacity:0.8; font-weight:normal;">(${total > 0 ? (data.rejected/total*100).toFixed(1) : "0.0"}%)</span></strong>
                 </div>
-                <div class="detail-stat-card glass-panel-inner" style="border-left: 2px solid var(--color-revoked); padding: 6px;">
+                <div class="detail-stat-card" style="border-left: 2px solid var(--color-revoked); padding: 6px;">
                     <span class="label" style="font-size:8px;">Revoked</span>
                     <strong class="value" style="font-size:12px; color:var(--color-revoked);">${data.revoked} <span style="font-size:10px; opacity:0.8; font-weight:normal;">(${total > 0 ? (data.revoked/total*100).toFixed(1) : "0.0"}%)</span></strong>
                 </div>
-                <div class="detail-stat-card glass-panel-inner" style="border-left: 2px solid var(--color-approved); padding: 6px;">
+                <div class="detail-stat-card" style="border-left: 2px solid var(--color-approved); padding: 6px;">
                     <span class="label" style="font-size:8px;">Approved</span>
                     <strong class="value" style="font-size:12px; color:var(--color-approved);">${data.approved} <span style="font-size:10px; opacity:0.8; font-weight:normal;">(${total > 0 ? (data.approved/total*100).toFixed(1) : "0.0"}%)</span></strong>
                 </div>
@@ -1300,7 +1429,7 @@ function renderPclDetail(email) {
     const listContainer = document.getElementById('detail-sls-list');
     data.slsList.forEach((sls) => {
         const card = document.createElement('div');
-        card.className = 'sls-detail-card glass-panel-inner';
+        card.className = 'sls-detail-card';
         card.innerHTML = `
             <div class="sls-card-header">
                 <div>
@@ -1324,3 +1453,318 @@ function renderPclDetail(email) {
         listContainer.appendChild(card);
     });
 }
+
+function exportOverviewToExcel() {
+    const wb = XLSX.utils.book_new();
+    const ws_data = [];
+
+    // ── Helper to push blank separator ──────────────────
+    const blank = (n = 1) => { for (let i = 0; i < n; i++) ws_data.push([]); };
+
+    // ── Compute totals ──────────────────────────────────
+    let globalTarget = 0, gOpen = 0, gDraft = 0, gSub = 0, gApp = 0, gRej = 0, gRev = 0;
+    for (const email in petugasData) {
+        const p = petugasData[email];
+        globalTarget += p.totalTarget; gOpen += p.open; gDraft += p.draft;
+        gSub += p.submitted; gApp += p.approved; gRej += p.rejected; gRev += p.revoked;
+    }
+    const tersubmit  = globalTarget - gOpen - gDraft;
+    const pctDone    = globalTarget > 0 ? (tersubmit  / globalTarget * 100).toFixed(2) : 0;
+    const pctOpen    = globalTarget > 0 ? (gOpen  / globalTarget * 100).toFixed(2) : 0;
+    const pctDraft   = globalTarget > 0 ? (gDraft / globalTarget * 100).toFixed(2) : 0;
+    const pctSub     = globalTarget > 0 ? (gSub   / globalTarget * 100).toFixed(2) : 0;
+    const pctApp     = globalTarget > 0 ? (gApp   / globalTarget * 100).toFixed(2) : 0;
+    const pctRej     = globalTarget > 0 ? (gRej   / globalTarget * 100).toFixed(2) : 0;
+    const pctRev     = globalTarget > 0 ? (gRev   / globalTarget * 100).toFixed(2) : 0;
+    const lastSync   = document.getElementById('last-sync')?.innerText || '-';
+    const exportTime = new Date().toLocaleString('id-ID');
+
+    // ════════════════════════════════════════════════════
+    // SECTION 1 — HEADER
+    // ════════════════════════════════════════════════════
+    ws_data.push(['DASHBOARD SE2026 - BPS KABUPATEN HALMAHERA UTARA']);
+    ws_data.push([`Terakhir Sync GSheet: ${lastSync}`]);
+    ws_data.push([`Waktu Export: ${exportTime}`]);
+    blank(1);
+
+    // ════════════════════════════════════════════════════
+    // SECTION 2 — KPI RINGKASAN
+    // ════════════════════════════════════════════════════
+    ws_data.push(['A. RINGKASAN KPI']);
+    ws_data.push(['Indikator', 'Jumlah', 'Persentase']);
+    ws_data.push(['Total Target SLS', globalTarget, '100%']);
+    ws_data.push(['Assignment Tersubmit (Non Open/Draft)', tersubmit, `${pctDone}%`]);
+    blank(1);
+    ws_data.push(['Detail Status Distribusi']);
+    ws_data.push(['Status', 'Jumlah', 'Persentase (%)']);
+    ws_data.push(['OPEN',      gOpen,  pctOpen]);
+    ws_data.push(['DRAFT',     gDraft, pctDraft]);
+    ws_data.push(['SUBMITTED', gSub,   pctSub]);
+    ws_data.push(['REJECTED',  gRej,   pctRej]);
+    ws_data.push(['REVOKED',   gRev,   pctRev]);
+    ws_data.push(['APPROVED',  gApp,   pctApp]);
+    blank(2);
+
+    // ════════════════════════════════════════════════════
+    // SECTION 3 — PROGRES PETUGAS (PCL)
+    // ════════════════════════════════════════════════════
+    ws_data.push(['B. PROGRES PETUGAS (PCL)']);
+    ws_data.push(['Nama Petugas', 'PJ Kecamatan', 'Total Target', 'Tersubmit', '% Tersubmit', 'Submitted', 'Approved', 'Rejected', 'Revoked', 'Draft', 'Open']);
+    const pList = Object.values(petugasData).map(p => {
+        const ts = p.totalTarget - p.open - p.draft;
+        const pct = p.totalTarget > 0 ? (ts / p.totalTarget * 100).toFixed(2) : 0;
+        return { ...p, ts, pct };
+    }).sort((a, b) => b.ts - a.ts);
+    pList.forEach(p => {
+        ws_data.push([p.namaLengkap, p.koseka, p.totalTarget, p.ts, parseFloat(p.pct), p.submitted, p.approved, p.rejected, p.revoked, p.draft, p.open]);
+    });
+    blank(2);
+
+    // ════════════════════════════════════════════════════
+    // SECTION 4 — PROGRES KECAMATAN
+    // ════════════════════════════════════════════════════
+    ws_data.push(['C. PROGRES KECAMATAN']);
+    ws_data.push(['Kecamatan', 'Jml SLS', 'Total Target', 'Tersubmit', '% Tersubmit', 'Submitted', 'Approved', 'Rejected', 'Revoked', 'Draft', 'Open']);
+    const kList = Object.values(kecamatanData).map(k => {
+        const ts = k.totalTarget - k.open - k.draft;
+        const pct = k.totalTarget > 0 ? (ts / k.totalTarget * 100).toFixed(2) : 0;
+        return { ...k, ts, pct };
+    }).sort((a, b) => b.ts - a.ts);
+    kList.forEach(k => {
+        ws_data.push([k.kecamatan, k.slsCount, k.totalTarget, k.ts, parseFloat(k.pct), k.submitted, k.approved, k.rejected, k.revoked, k.draft, k.open]);
+    });
+    blank(2);
+
+    // ════════════════════════════════════════════════════
+    // SECTION 5 — PROGRES PJ KECAMATAN
+    // ════════════════════════════════════════════════════
+    ws_data.push(['D. PROGRES PJ KECAMATAN']);
+    ws_data.push(['Nama PJ Kecamatan', 'Total Target', '% Pendataan', '% Submit', '% Approve']);
+    const pjList = Object.keys(kosekaData).map(k => {
+        const d = kosekaData[k];
+        const total = d.totalTarget || 0;
+        if (total === 0) return null;
+        return {
+            name: k, total,
+            pendataan: parseFloat(((total - d.open) / total * 100).toFixed(2)),
+            submit:    parseFloat((d.submitted / total * 100).toFixed(2)),
+            approve:   parseFloat((d.approved  / total * 100).toFixed(2)),
+        };
+    }).filter(Boolean).sort((a, b) => b.pendataan - a.pendataan);
+    pjList.forEach(p => {
+        ws_data.push([p.name, p.total, p.pendataan, p.submit, p.approve]);
+    });
+    blank(2);
+
+    // ════════════════════════════════════════════════════
+    // SECTION 6 — PROGRES PML
+    // ════════════════════════════════════════════════════
+    ws_data.push(['E. PROGRES PML (PENGAWAS LAPANGAN)']);
+    ws_data.push(['Nama PML', 'Total Target', '% Pendataan', '% Submit', '% Approve']);
+    const pmlList = Object.keys(pmlData).map(p => {
+        const d = pmlData[p];
+        const total = d.totalTarget || 0;
+        if (total === 0) return null;
+        return {
+            name: p, total,
+            pendataan: parseFloat(((total - d.open) / total * 100).toFixed(2)),
+            submit:    parseFloat((d.submitted / total * 100).toFixed(2)),
+            approve:   parseFloat((d.approved  / total * 100).toFixed(2)),
+        };
+    }).filter(Boolean).sort((a, b) => b.pendataan - a.pendataan);
+    pmlList.forEach(p => {
+        ws_data.push([p.name, p.total, p.pendataan, p.submit, p.approve]);
+    });
+
+    // ════════════════════════════════════════════════════
+    // BUILD SHEET & APPLY STYLES
+    // ════════════════════════════════════════════════════
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+
+    // Column widths
+    ws['!cols'] = [
+        { wch: 38 }, // A
+        { wch: 20 }, // B
+        { wch: 15 }, // C
+        { wch: 13 }, // D
+        { wch: 15 }, // E
+        { wch: 12 }, // F
+        { wch: 12 }, // G
+        { wch: 12 }, // H
+        { wch: 12 }, // I
+        { wch: 10 }, // J
+        { wch: 10 }, // K
+    ];
+
+    // Merge title cells A1:K1
+    ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 10 } },
+    ];
+
+    // Apply cell styles using xlsx-js-style
+    const totalRows = ws_data.length;
+    for (let r = 0; r < totalRows; r++) {
+        const row = ws_data[r];
+        if (!row) continue;
+        
+        let isSection = false;
+        let isHeader = false;
+        let isTitle = r < 3;
+        
+        if (row[0] && typeof row[0] === 'string') {
+            if (row[0].match(/^[A-E]\. /) || row[0] === 'Detail Status Distribusi') isSection = true;
+            if (row[0] === 'Indikator' || row[0] === 'Status' || row[0] === 'Nama Petugas' || row[0] === 'Kecamatan' || row[0] === 'Nama PJ Kecamatan' || row[0] === 'Nama PML') isHeader = true;
+        }
+
+        row.forEach((cell, c) => {
+            const addr = XLSX.utils.encode_cell({ r, c });
+            if (ws[addr]) {
+                if (typeof cell === 'number' && !String(ws_data[r][c]).includes('Persentase')) {
+                    ws[addr].t = 'n';
+                }
+                
+                let cellStyle = {
+                    font: { name: "Arial", sz: 10, color: { rgb: "333333" } },
+                    alignment: { vertical: "center" }
+                };
+
+                if (isTitle) {
+                    cellStyle.font.bold = true;
+                    if (r === 0) cellStyle.font.sz = 14;
+                    cellStyle.font.color = { rgb: "111827" };
+                } else if (isSection) {
+                    cellStyle.font.bold = true;
+                    cellStyle.font.sz = 11;
+                    cellStyle.font.color = { rgb: "4F46E5" };
+                    cellStyle.fill = { fgColor: { rgb: "EEF2FF" } };
+                    cellStyle.border = { bottom: { style: "medium", color: { rgb: "4F46E5" } } };
+                } else if (isHeader) {
+                    cellStyle.font.bold = true;
+                    cellStyle.font.color = { rgb: "FFFFFF" };
+                    cellStyle.fill = { fgColor: { rgb: "6366F1" } };
+                    cellStyle.alignment.horizontal = "center";
+                } else if (cell !== undefined && cell !== '') {
+                    cellStyle.border = {
+                        top: { style: "thin", color: { rgb: "E5E7EB" } },
+                        bottom: { style: "thin", color: { rgb: "E5E7EB" } },
+                        left: { style: "thin", color: { rgb: "E5E7EB" } },
+                        right: { style: "thin", color: { rgb: "E5E7EB" } }
+                    };
+                    if (c > 0 && !isHeader && !isSection && !isTitle && typeof cell === 'number') {
+                         cellStyle.alignment.horizontal = "center";
+                    }
+                }
+                
+                ws[addr].s = cellStyle;
+            }
+        });
+    }
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Rekap Overview');
+
+    // Download
+    const lastSyncStr = document.getElementById('last-sync')?.innerText || 'UnknownTime';
+    let safeStamp = 'UnknownTime';
+    let dtMatch = lastSyncStr.match(/(\d{1,4})/g);
+    if (dtMatch && dtMatch.length >= 5) {
+        let y = dtMatch.find(d => d.length === 4) || new Date().getFullYear().toString();
+        let d, m, h, mn;
+        if (dtMatch[2] === y) {
+            d = dtMatch[0].padStart(2, '0');
+            m = dtMatch[1].padStart(2, '0');
+        } else if (dtMatch[0] === y) {
+            m = dtMatch[1].padStart(2, '0');
+            d = dtMatch[2].padStart(2, '0');
+        } else {
+            d = dtMatch[0].padStart(2, '0');
+            m = dtMatch[1].padStart(2, '0');
+        }
+        h = dtMatch[3].padStart(2, '0');
+        mn = dtMatch[4].padStart(2, '0');
+        safeStamp = `${y}${m}${d}_${h}${mn}`;
+    }
+    XLSX.writeFile(wb, `Rekap_SE2026_Halut_${safeStamp}.xlsx`);
+}
+
+// ================================================================
+// Custom Select Logic for Glassmorphism UI
+// ================================================================
+function applyCustomSelect(select) {
+    let wrapper = select.nextElementSibling;
+    if (wrapper && wrapper.classList.contains('custom-select-wrapper')) {
+        wrapper.remove(); // rebuild on options change
+    }
+    
+    select.style.display = 'none';
+    
+    wrapper = document.createElement('div');
+    wrapper.className = 'custom-select-wrapper';
+    
+    const trigger = document.createElement('div');
+    trigger.className = 'custom-select-trigger glass-select';
+    
+    const textSpan = document.createElement('span');
+    textSpan.textContent = select.options[select.selectedIndex]?.textContent || '';
+    
+    const icon = document.createElement('i');
+    icon.className = 'ri-arrow-down-s-line';
+    
+    trigger.appendChild(textSpan);
+    trigger.appendChild(icon);
+    
+    const optionsPanel = document.createElement('div');
+    optionsPanel.className = 'custom-select-options glass-panel-inner';
+    
+    Array.from(select.options).forEach((opt, idx) => {
+        const optDiv = document.createElement('div');
+        optDiv.className = 'custom-option' + (opt.selected ? ' selected' : '');
+        optDiv.textContent = opt.textContent;
+        optDiv.addEventListener('click', (e) => {
+            e.stopPropagation();
+            select.selectedIndex = idx;
+            select.dispatchEvent(new Event('change'));
+            
+            textSpan.textContent = opt.textContent;
+            optionsPanel.classList.remove('open');
+            trigger.classList.remove('open');
+            Array.from(optionsPanel.children).forEach(c => c.classList.remove('selected'));
+            optDiv.classList.add('selected');
+        });
+        optionsPanel.appendChild(optDiv);
+    });
+    
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = optionsPanel.classList.contains('open');
+        document.querySelectorAll('.custom-select-options').forEach(p => p.classList.remove('open'));
+        document.querySelectorAll('.custom-select-trigger').forEach(p => p.classList.remove('open'));
+        if (!isOpen) {
+            optionsPanel.classList.add('open');
+            trigger.classList.add('open');
+        }
+    });
+    
+    wrapper.appendChild(trigger);
+    wrapper.appendChild(optionsPanel);
+    select.parentNode.insertBefore(wrapper, select.nextSibling);
+    
+    if (!select.dataset.customized) {
+        select.dataset.customized = "true";
+        select.addEventListener('change', () => {
+             const w = select.nextElementSibling;
+             if(w && w.classList.contains('custom-select-wrapper')) {
+                 w.querySelector('span').textContent = select.options[select.selectedIndex]?.textContent || '';
+                 Array.from(w.querySelectorAll('.custom-option')).forEach((optEl, i) => {
+                     optEl.classList.toggle('selected', i === select.selectedIndex);
+                 });
+             }
+        });
+    }
+}
+
+document.addEventListener('click', () => {
+    document.querySelectorAll('.custom-select-options').forEach(p => p.classList.remove('open'));
+    document.querySelectorAll('.custom-select-trigger').forEach(p => p.classList.remove('open'));
+});
