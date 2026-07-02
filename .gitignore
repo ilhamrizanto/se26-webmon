@@ -24,3 +24,6 @@ config.txt
 .vscode/
 .idea/
 *.swp
+
+# Scrape results directory
+scrape_results/
