@@ -1,6 +1,6 @@
 [build]
   # Direktori yang akan di-publish oleh Netlify
-  publish = "webmon"
+  publish = "."
   
   # Kosongkan karena kita tidak menggunakan framework (HTML statis murni)
   command = ""
