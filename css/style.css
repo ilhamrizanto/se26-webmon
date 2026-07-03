@@ -270,8 +270,8 @@ body.light-theme {
 .kpi-card-body h3 { font-family:'Outfit',sans-serif; font-size:20px; font-weight:700; line-height:1.1; letter-spacing:-0.3px; }
 .kpi-sub-desc { font-size:10px; color:var(--text-dim); margin-top:2px; }
 
-.progress-bar-thin { height:4px; background:rgba(0,0,0,0.08); border-radius:3px; margin-top:10px; overflow:hidden; width:100%; }
-.progress-fill-thin { height:100%; border-radius:3px; transition:width .8s cubic-bezier(.4,0,.2,1); }
+.progress-bar-thin { height:10px; background:rgba(0,0,0,0.08); border-radius:5px; margin-top:10px; overflow:hidden; width:100%; }
+.progress-fill-thin { height:100%; border-radius:5px; transition:width .8s cubic-bezier(.4,0,.2,1); }
 
 .indicator-dot { width:7px; height:7px; border-radius:50%; display:inline-block; }
 .status-card   { border-left:3px solid var(--text-dim); }
@@ -458,8 +458,8 @@ body.light-theme {
 
 
 .hierarchy-progress-wrapper { display:flex; align-items:center; gap:8px; margin-top:2px; }
-.hierarchy-progress-bar { flex:1; height:4px; background:rgba(0,0,0,0.07); border-radius:2px; overflow:hidden; }
-.hierarchy-progress-fill { height:100%; border-radius:2px; background:linear-gradient(90deg,#6366f1,#10b981); transition:width .4s; }
+.hierarchy-progress-bar { flex:1; height:10px; background:rgba(0,0,0,0.07); border-radius:5px; overflow:hidden; }
+.hierarchy-progress-fill { height:100%; border-radius:5px; background:linear-gradient(90deg,#6366f1,#10b981); transition:width .4s; }
 .hierarchy-progress-percent { font-family:'Outfit',sans-serif; font-size:10px; font-weight:700; color:var(--color-approved); min-width:28px; text-align:right; }
 
 .empty-column-state { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-dim); text-align:center; gap:12px; padding:24px; }
@@ -815,8 +815,8 @@ body.light-theme {
   white-space: nowrap;
 }
 .pj-pml-track {
-  height: 6px;
-  border-radius: 3px;
+  height: 10px;
+  border-radius: 5px;
   background: rgba(0,0,0,0.08);
   overflow: hidden;
 }
