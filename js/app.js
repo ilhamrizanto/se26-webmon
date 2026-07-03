@@ -156,14 +156,49 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function fetchCSV(url) {
+    const cbUrl = url + (url.includes('?') ? '&' : '?') + 'cb=' + new Date().getTime();
     return new Promise((resolve, reject) => {
-        Papa.parse(url, {
+        Papa.parse(cbUrl, {
             download: true,
-            header: true,
+            header: false,
             dynamicTyping: true,
             skipEmptyLines: true,
             complete: function(results) {
-                resolve(results.data);
+                if (!results.data || results.data.length === 0) {
+                    resolve([]);
+                    return;
+                }
+                const headers = results.data[0];
+                const rows = results.data.slice(1);
+                
+                // Construct unique header names to prevent PapaParse header failures
+                const cleanHeaders = [];
+                const seen = {};
+                headers.forEach((h, idx) => {
+                    let name = h ? String(h).trim() : '';
+                    if (!name) {
+                        name = `_empty_col_${idx}`;
+                    }
+                    if (seen[name]) {
+                        let count = 1;
+                        while (seen[`${name}_${count}`]) {
+                            count++;
+                        }
+                        name = `${name}_${count}`;
+                    }
+                    seen[name] = true;
+                    cleanHeaders.push(name);
+                });
+
+                const objects = rows.map(row => {
+                    const obj = {};
+                    cleanHeaders.forEach((header, idx) => {
+                        obj[header] = row[idx];
+                    });
+                    return obj;
+                });
+                
+                resolve(objects);
             },
             error: function(err) {
                 reject(err);
@@ -184,6 +219,27 @@ function cleanName(name) {
         .trim();
 }
 
+function parseGSheetDate(val) {
+    if (val === null || val === undefined || val === '') return null;
+    const str = String(val).trim();
+    if (!str) return null;
+    
+    const gvizMatch = str.match(/Date\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d+),\s*(\d+),\s*(\d+))?\)/i);
+    if (gvizMatch) {
+        const y = parseInt(gvizMatch[1]);
+        const m = parseInt(gvizMatch[2]) + 1;
+        const d = parseInt(gvizMatch[3]);
+        const hh = gvizMatch[4] ? String(gvizMatch[4]).padStart(2, '0') : '00';
+        const mm = gvizMatch[5] ? String(gvizMatch[5]).padStart(2, '0') : '00';
+        const ss = gvizMatch[6] ? String(gvizMatch[6]).padStart(2, '0') : '00';
+        const mmStr = String(m).padStart(2, '0');
+        const ddStr = String(d).padStart(2, '0');
+        return `${y}-${mmStr}-${ddStr} ${hh}:${mm}:${ss}`;
+    }
+    
+    return str;
+}
+
 function initApp() {
     Promise.all([
         fetchCSV(SHEET_DB_URL),
@@ -196,9 +252,46 @@ function initApp() {
         rawSlsData = slsDataRaw;
         rawKorwilData = korwilData;
         
-        const timeStr = (dbData && dbData.length > 0 && dbData[0]['sync_time']) 
-            ? dbData[0]['sync_time'] 
-            : new Date().toLocaleString('id-ID');
+        let timeStr = new Date().toLocaleString('id-ID');
+        if (dbData && dbData.length > 0) {
+            let foundTime = null;
+            
+            // 1. Try finding by column key matching 'sync'
+            const keys = Object.keys(dbData[0]);
+            const syncKey = keys.find(k => k && k.toLowerCase().replace(/[^a-z]/g, '').includes('sync'));
+            
+            if (syncKey) {
+                for (let i = 0; i < Math.min(10, dbData.length); i++) {
+                    const parsed = parseGSheetDate(dbData[i][syncKey]);
+                    if (parsed) {
+                        foundTime = parsed;
+                        break;
+                    }
+                }
+            }
+            
+            // 2. Fallback: Scan all cells in first 10 rows for Date(...) or date string
+            if (!foundTime) {
+                for (let i = 0; i < Math.min(10, dbData.length); i++) {
+                    const values = Object.values(dbData[i]);
+                    for (const val of values) {
+                        if (val) {
+                            const strVal = String(val);
+                            if (strVal.includes('Date(') || strVal.match(/\d{4}-\d{2}-\d{2}/) || strVal.match(/\d{2}\/\d{2}\/\d{4}/)) {
+                                foundTime = parseGSheetDate(val);
+                                break;
+                            }
+                        }
+                    }
+                    if (foundTime) break;
+                }
+            }
+            
+            if (foundTime) {
+                timeStr = foundTime;
+            }
+        }
+        console.log("Final timeStr:", timeStr);
         
         processAllData();
         updateDashboard();
