@@ -3,7 +3,6 @@ const SHEET_DB_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/g
 const SHEET_NAMA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Nama`;
 const SHEET_SLS_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=SLS`;
 const SHEET_KORWIL_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Korwil`;
-const SHEET_TIME_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Time`;
 
 // Global Data State
 let rawDataDB = [];
@@ -173,24 +172,7 @@ function fetchCSV(url) {
     });
 }
 
-function fetchTime(url) {
-    return new Promise((resolve) => {
-        Papa.parse(url, {
-            download: true,
-            header: false,
-            complete: function(results) {
-                if (results.data && results.data.length > 0 && results.data[0].length > 0) {
-                    resolve(results.data[0][0]);
-                } else {
-                    resolve(new Date().toLocaleString('id-ID'));
-                }
-            },
-            error: function(err) {
-                resolve(new Date().toLocaleString('id-ID'));
-            }
-        });
-    });
-}
+
 
 function cleanName(name) {
     if (!name) return "";
@@ -207,13 +189,16 @@ function initApp() {
         fetchCSV(SHEET_DB_URL),
         fetchCSV(SHEET_NAMA_URL),
         fetchCSV(SHEET_SLS_URL),
-        fetchCSV(SHEET_KORWIL_URL),
-        fetchTime(SHEET_TIME_URL)
-    ]).then(([dbData, namaData, slsDataRaw, korwilData, timeStr]) => {
+        fetchCSV(SHEET_KORWIL_URL)
+    ]).then(([dbData, namaData, slsDataRaw, korwilData]) => {
         rawDataDB = dbData;
         rawNamaData = namaData;
         rawSlsData = slsDataRaw;
         rawKorwilData = korwilData;
+        
+        const timeStr = (dbData && dbData.length > 0 && dbData[0]['sync_time']) 
+            ? dbData[0]['sync_time'] 
+            : new Date().toLocaleString('id-ID');
         
         processAllData();
         updateDashboard();
