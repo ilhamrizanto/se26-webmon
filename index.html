@@ -57,9 +57,13 @@
     <!-- Main macOS Window Application Container -->
     <div class="app-window" id="app-content" style="display: none;">
         
+        <!-- Sidebar Overlay for Mobile -->
+        <div class="sidebar-overlay" id="sidebar-overlay"></div>
+        
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
-            <div class="sidebar-header">
+            <div class="sidebar-header" style="position: relative;">
+                <button id="btn-close-sidebar" class="btn-close-sidebar"><i class="ri-close-line"></i></button>
                 <div class="mac-dots">
                     <span class="dot red"></span>
                     <span class="dot yellow"></span>
@@ -113,6 +117,18 @@
 
         <!-- Main Workspace Area -->
         <main class="main-workspace">
+            
+            <!-- Mobile Header -->
+            <header class="mobile-header">
+                <div class="mobile-brand">
+                    <img src="img/se.png" alt="SE2026" style="height:32px; width:auto; border-radius:4px;">
+                    <span style="font-family:'Outfit',sans-serif; font-size:14px; font-weight:700; color:var(--text-title); letter-spacing:-0.2px;">Webmon SE2026</span>
+                </div>
+                <button id="btn-burger" class="btn-burger">
+                    <i class="ri-menu-line"></i>
+                </button>
+            </header>
+
             <!-- Scrollable Workspace Panels -->
             <div class="workspace-scrollable">
                 

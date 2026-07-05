@@ -147,6 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setupKorwilFilters();
     setupModal();
     setupSorts();
+    setupMobileMenu();
     
     document.getElementById('btn-refresh').addEventListener('click', () => {
         elAppContent.style.display = 'none';
@@ -1848,3 +1849,43 @@ document.addEventListener('click', () => {
     document.querySelectorAll('.custom-select-options').forEach(p => p.classList.remove('open'));
     document.querySelectorAll('.custom-select-trigger').forEach(p => p.classList.remove('open'));
 });
+
+function setupMobileMenu() {
+    const btnBurger = document.getElementById('btn-burger');
+    const btnCloseSidebar = document.getElementById('btn-close-sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+    const sidebar = document.querySelector('.sidebar');
+    
+    if (btnBurger && sidebar) {
+        btnBurger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sidebar.classList.add('open');
+            if (sidebarOverlay) {
+                sidebarOverlay.classList.add('active');
+            }
+        });
+    }
+    
+    const closeMenu = () => {
+        if (sidebar) sidebar.classList.remove('open');
+        if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+    };
+    
+    if (btnCloseSidebar) {
+        btnCloseSidebar.addEventListener('click', closeMenu);
+    }
+    
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', closeMenu);
+    }
+    
+    // Close sidebar on nav item click in mobile
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(item => {
+        item.addEventListener('click', () => {
+            if (window.innerWidth <= 768) {
+                closeMenu();
+            }
+        });
+    });
+}
