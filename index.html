@@ -259,6 +259,72 @@
 
                     </div>
 
+                    <!-- Anomali Kabupaten Summary Section -->
+                    <div class="anomaly-summary-banner glass-panel-inner" style="padding: 18px 22px; margin-bottom: 16px; border-radius: 14px; border-left: 4px solid #ff8b0e; display: flex; flex-wrap: wrap; gap: 24px; align-items: center;">
+                        
+                        <!-- Header / Total Status -->
+                        <div style="display: flex; align-items: center; gap: 16px; flex: 1 1 220px; min-width: 220px;">
+                            <div style="background: rgba(255, 139, 14, 0.15); color: #ff8b0e; width: 52px; height: 52px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; transition: all 0.3s;">
+                                <i class="ri-alert-line" id="kpi-anomaly-icon"></i>
+                            </div>
+                            <div>
+                                <h4 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 700; color: var(--text-title); letter-spacing: -0.2px;">Rekap Anomali</h4>
+                                <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 4px;">
+                                    <span id="kpi-anomaly-kabupaten" style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 700; color: #ff8b0e;">0/0 Tuntas</span>
+                                    <span style="font-size: 12px; color: var(--text-muted);">(Kabupaten)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Stats Wrapper for Usaha and Keluarga -->
+                        <div style="display: flex; flex-wrap: wrap; gap: 20px; flex: 2 1 400px; min-width: 260px;">
+                            <!-- Anomali Usaha -->
+                            <div style="flex: 1 1 180px; display: flex; flex-direction: column; background: rgba(0,0,0,0.02); padding: 14px 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; flex-wrap: wrap; gap: 4px;">
+                                    <span style="font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                                        <i class="ri-store-2-line" style="font-size: 16px; color: var(--text-dim);"></i> Usaha
+                                    </span>
+                                    <span id="anom-usaha-time" style="font-size: 9px; color: var(--text-dim); font-weight: 500;"></span>
+                                </div>
+                                
+                                <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 10px;">
+                                    <span id="anom-usaha-done" style="font-family: 'Outfit', sans-serif; font-size: 28px; font-weight: 700; color: #10b981; line-height: 1;">0</span>
+                                    <span style="color: var(--text-dim); font-size: 20px; font-weight: 300;">/</span>
+                                    <span id="anom-usaha-pending" style="font-family: 'Outfit', sans-serif; font-size: 28px; font-weight: 700; color: #ef4444; line-height: 1;">0</span>
+                                </div>
+                                <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">Selesai / Belum Tindak Lanjut</div>
+                                
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 8px; margin-top: 10px;">
+                                    <span style="color: var(--text-muted); font-size: 12px; font-weight: 600;">Total Anomali</span>
+                                    <span id="anom-usaha-total" style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 700; color: var(--text-title);">0</span>
+                                </div>
+                            </div>
+
+                            <!-- Anomali Keluarga -->
+                            <div style="flex: 1 1 180px; display: flex; flex-direction: column; background: rgba(0,0,0,0.02); padding: 14px 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; flex-wrap: wrap; gap: 4px;">
+                                    <span style="font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                                        <i class="ri-home-heart-line" style="font-size: 16px; color: var(--text-dim);"></i> Keluarga
+                                    </span>
+                                    <span id="anom-keluarga-time" style="font-size: 9px; color: var(--text-dim); font-weight: 500;"></span>
+                                </div>
+                                
+                                <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 10px;">
+                                    <span id="anom-keluarga-done" style="font-family: 'Outfit', sans-serif; font-size: 28px; font-weight: 700; color: #10b981; line-height: 1;">0</span>
+                                    <span style="color: var(--text-dim); font-size: 20px; font-weight: 300;">/</span>
+                                    <span id="anom-keluarga-pending" style="font-family: 'Outfit', sans-serif; font-size: 28px; font-weight: 700; color: #ef4444; line-height: 1;">0</span>
+                                </div>
+                                <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">Selesai / Belum Tindak Lanjut</div>
+                                
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 8px; margin-top: 10px;">
+                                    <span style="color: var(--text-muted); font-size: 12px; font-weight: 600;">Total Anomali</span>
+                                    <span id="anom-keluarga-total" style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 700; color: var(--text-title);">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
                     <!-- Charts Visualization Row -->
                     <div class="charts-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; margin-bottom: 16px;">
                         <!-- Progres Petugas -->
@@ -362,6 +428,8 @@
                                         <th>Approved</th>
                                         <th>Progres Submitted</th>
                                         <th>Progres Pendataan</th>
+                                        <th>Anomali Usaha</th>
+                                        <th>Anomali Keluarga</th>
                                     </tr>
                                 </thead>
                                 <tbody>

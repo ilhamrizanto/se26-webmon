@@ -3,12 +3,16 @@ const SHEET_DB_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/g
 const SHEET_NAMA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Nama`;
 const SHEET_SLS_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=SLS`;
 const SHEET_KORWIL_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Korwil`;
+const SHEET_ANOMALI_USAHA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Anomali%20Usaha`;
+const SHEET_ANOMALI_KELUARGA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Anomali%20Keluarga`;
 
 // Global Data State
 let rawDataDB = [];
 let rawNamaData = [];
 let rawSlsData = [];
 let rawKorwilData = [];
+let rawAnomaliUsahaRows = [];
+let rawAnomaliKeluargaRows = [];
 
 let slsAssignments = []; // Unified data array
 let sortPjDesc = true;
@@ -64,16 +68,34 @@ function getProgressBarColor(pct) {
     return `hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%)`;
 }
 
-function makeTripleBar(name, pendataan, submit, approve) {
+function makeTripleBar(name, pendataan, submit, approve, anomaliDone = 0, anomaliTotal = 0) {
     const colPen = getProgressBarColor(pendataan);
     const colSub = getProgressBarColor(submit);
     const colApp = getProgressBarColor(approve);
     const wPen   = Math.min(100, pendataan).toFixed(1);
     const wSub   = Math.min(100, submit).toFixed(1);
     const wApp   = Math.min(100, approve).toFixed(1);
+
+    let anomaliBadgeClass = 'anomali-none';
+    let anomaliIcon = 'ri-checkbox-circle-line';
+    if (anomaliTotal > 0) {
+        if (anomaliDone === anomaliTotal) {
+            anomaliBadgeClass = 'anomali-done';
+            anomaliIcon = 'ri-checkbox-circle-line';
+        } else {
+            anomaliBadgeClass = 'anomali-pending';
+            anomaliIcon = 'ri-alert-line';
+        }
+    }
+
     return `
         <div class="pj-pml-card">
-            <div class="pj-pml-name" title="${name}">${name}</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:7px; gap:8px;">
+                <div class="pj-pml-name" title="${name}" style="margin-bottom:0; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${name}</div>
+                <div class="anomali-badge ${anomaliBadgeClass}" title="Anomali: ${anomaliDone}/${anomaliTotal} Ditindaklanjuti">
+                    <i class="${anomaliIcon}"></i> Anomali: ${anomaliDone}/${anomaliTotal}
+                </div>
+            </div>
             <div class="pj-pml-bars">
                 <div class="pj-pml-bar-row">
                     <span class="pj-pml-label">Pendataan</span>
@@ -114,10 +136,10 @@ function renderOverviewTables() {
             const pctPendataan = tersubmit / total * 100;
             const pctSubmit = (total - data.open - data.draft) / total * 100;
             const pctApprove = data.approved / total * 100;
-            pjList.push({ name: k, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove });
+            pjList.push({ name: k, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, anomaliDone: data.anomaliDone || 0, anomaliTotal: data.anomaliTotal || 0 });
         });
         pjList.sort((a, b) => sortPjDesc ? b.pendataan - a.pendataan : a.pendataan - b.pendataan);
-        listPj.innerHTML = pjList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve)).join('');
+        listPj.innerHTML = pjList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve, p.anomaliDone, p.anomaliTotal)).join('');
     }
 
     // ── Progres PML ────────────────────────────────
@@ -132,10 +154,10 @@ function renderOverviewTables() {
             const pctPendataan = tersubmit / total * 100;
             const pctSubmit = (total - data.open - data.draft) / total * 100;
             const pctApprove = data.approved / total * 100;
-            pmlList.push({ name: p, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove });
+            pmlList.push({ name: p, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, anomaliDone: data.anomaliDone || 0, anomaliTotal: data.anomaliTotal || 0 });
         });
         pmlList.sort((a, b) => sortPmlDesc ? b.pendataan - a.pendataan : a.pendataan - b.pendataan);
-        listPml.innerHTML = pmlList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve)).join('');
+        listPml.innerHTML = pmlList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve, p.anomaliDone, p.anomaliTotal)).join('');
     }
 }
 
@@ -208,7 +230,105 @@ function fetchCSV(url) {
     });
 }
 
+function fetchCSVRaw(url) {
+    const cbUrl = url + (url.includes('?') ? '&' : '?') + 'cb=' + new Date().getTime();
+    return new Promise((resolve, reject) => {
+        Papa.parse(cbUrl, {
+            download: true,
+            header: false,
+            dynamicTyping: false,
+            skipEmptyLines: true,
+            complete: function(results) {
+                resolve(results.data || []);
+            },
+            error: function(err) {
+                reject(err);
+            }
+        });
+    });
+}
 
+function parseAnomaliRows(rawRows) {
+    if (!rawRows || rawRows.length === 0) return [];
+    
+    let headerIdx = -1;
+    for (let i = 0; i < Math.min(10, rawRows.length); i++) {
+        const rowStr = (rawRows[i] || []).map(c => String(c || '').trim()).join(' ');
+        if (rowStr.toLowerCase().includes('kode desa') && (rowStr.toLowerCase().includes('tindak lanjut') || rowStr.toLowerCase().includes('kode sls'))) {
+            headerIdx = i;
+            break;
+        }
+    }
+    
+    if (headerIdx === -1) return [];
+    
+    const headers = rawRows[headerIdx].map(c => String(c || '').trim());
+    
+    const idxDesa = headers.findIndex(h => h.toLowerCase().includes('kode desa'));
+    const idxSLS = headers.findIndex(h => h.toLowerCase().includes('kode sls'));
+    const idxSubSLS = headers.findIndex(h => h.toLowerCase().includes('sub sls'));
+    const idxTL = headers.findIndex(h => h.toLowerCase().includes('tindak lanjut'));
+    const idxEmail = headers.findIndex(h => h.toLowerCase().includes('email'));
+    const idxKrt = headers.findIndex(h => h.toLowerCase().includes('nama kepala keluarga') || h.toLowerCase().includes('nama usaha'));
+    const idxKec = headers.findIndex(h => h.toLowerCase().includes('nama kecamatan'));
+    const idxDesaName = headers.findIndex(h => h.toLowerCase().includes('nama desa/kel'));
+    const idxAnom = headers.findIndex(h => h.toLowerCase().includes('nama anomali'));
+    const idxFasih = headers.findIndex(h => h.toLowerCase().includes('link fasih'));
+    
+    if (idxDesa === -1 || idxSLS === -1 || idxSubSLS === -1) return [];
+    
+    const items = [];
+    const dataRows = rawRows.slice(headerIdx + 1);
+    
+    dataRows.forEach(row => {
+        if (!row || row.length === 0) return;
+        
+        const rawDesa = String(row[idxDesa] || '').split('.')[0].trim();
+        const rawSLS = String(row[idxSLS] || '').split('.')[0].trim();
+        const rawSubSLS = String(row[idxSubSLS] || '').split('.')[0].trim();
+        
+        if (!rawDesa || rawDesa.includes('(') || rawDesa.toLowerCase().includes('kode')) return;
+        
+        const desaPad = rawDesa.padStart(10, '0');
+        const slsPad = rawSLS.padStart(4, '0');
+        const subSlsPad = rawSubSLS.padStart(2, '0');
+        
+        const idsubsls = desaPad + slsPad + subSlsPad;
+        
+        const tlVal = idxTL !== -1 ? String(row[idxTL] || '').trim().toLowerCase() : '';
+        const isDone = (tlVal.includes('sudah') || tlVal.includes('selesai') || tlVal.includes('ditindaklanjuti')) && !tlVal.includes('belum');
+        
+        const email = idxEmail !== -1 ? String(row[idxEmail] || '').trim().toLowerCase() : '';
+        const namaKrt = idxKrt !== -1 ? String(row[idxKrt] || '').trim() : '';
+        const nmkec = idxKec !== -1 ? String(row[idxKec] || '').trim() : '';
+        const nmdesa = idxDesaName !== -1 ? String(row[idxDesaName] || '').trim() : '';
+        const namaAnomali = idxAnom !== -1 ? String(row[idxAnom] || '').trim() : '';
+        const linkFasih = idxFasih !== -1 ? String(row[idxFasih] || '').trim() : '';
+        
+        items.push({
+            idsubsls,
+            isDone,
+            email,
+            namaKrt,
+            nmkec,
+            nmdesa,
+            namaAnomali,
+            linkFasih
+        });
+    });
+    
+    return items;
+}
+
+function extractDicetakTime(rawRows) {
+    if (!rawRows || rawRows.length < 2) return null;
+    const cellValue = String(rawRows[1][0] || '');
+    const idx = cellValue.toLowerCase().indexOf('dicetak:');
+    if (idx !== -1) {
+        return cellValue.substring(idx + 8).trim();
+    }
+    return null;
+}
 
 function cleanName(name) {
     if (!name) return "";
@@ -246,12 +366,16 @@ function initApp() {
         fetchCSV(SHEET_DB_URL),
         fetchCSV(SHEET_NAMA_URL),
         fetchCSV(SHEET_SLS_URL),
-        fetchCSV(SHEET_KORWIL_URL)
-    ]).then(([dbData, namaData, slsDataRaw, korwilData]) => {
+        fetchCSV(SHEET_KORWIL_URL),
+        fetchCSVRaw(SHEET_ANOMALI_USAHA_URL),
+        fetchCSVRaw(SHEET_ANOMALI_KELUARGA_URL)
+    ]).then(([dbData, namaData, slsDataRaw, korwilData, rawAnomaliUsaha, rawAnomaliKeluarga]) => {
         rawDataDB = dbData;
         rawNamaData = namaData;
         rawSlsData = slsDataRaw;
         rawKorwilData = korwilData;
+        rawAnomaliUsahaRows = rawAnomaliUsaha;
+        rawAnomaliKeluargaRows = rawAnomaliKeluarga;
         
         let timeStr = new Date().toLocaleString('id-ID');
         if (dbData && dbData.length > 0) {
@@ -516,6 +640,99 @@ function processAllData() {
         kc.revoked += item.revoked;
         kc.slsCount++;
     });
+
+    // 5. Parse and Aggregate Anomalies
+    const listAnomaliUsaha = parseAnomaliRows(rawAnomaliUsahaRows);
+    const listAnomaliKeluarga = parseAnomaliRows(rawAnomaliKeluargaRows);
+    
+    window.anomaliUsahaTime = extractDicetakTime(rawAnomaliUsahaRows);
+    window.anomaliKeluargaTime = extractDicetakTime(rawAnomaliKeluargaRows);
+    
+    listAnomaliUsaha.forEach(a => a.type = 'usaha');
+    listAnomaliKeluarga.forEach(a => a.type = 'keluarga');
+
+    let usahaDone = 0;
+    listAnomaliUsaha.forEach(a => { if (a.isDone) usahaDone++; });
+    let keluargaDone = 0;
+    listAnomaliKeluarga.forEach(a => { if (a.isDone) keluargaDone++; });
+
+    window.statsAnomaliUsaha = { done: usahaDone, total: listAnomaliUsaha.length };
+    window.statsAnomaliKeluarga = { done: keluargaDone, total: listAnomaliKeluarga.length };
+
+    const allAnomali = [...listAnomaliUsaha, ...listAnomaliKeluarga];
+
+    const slsToAssignmentMap = {};
+    slsAssignments.forEach(asgn => {
+        slsToAssignmentMap[asgn.slsId] = asgn;
+    });
+
+    allAnomali.forEach(anom => {
+        let asgn = slsToAssignmentMap[anom.idsubsls];
+        
+        let p = null;
+        let pm = null;
+        let ks = null;
+        let kc = null;
+        
+        if (asgn) {
+            p = petugasData[asgn.email];
+            pm = pmlData[asgn.pml];
+            ks = kosekaData[asgn.koseka];
+            kc = kecamatanData[asgn.kecamatan];
+        } else if (anom.email && petugasData[anom.email]) {
+            p = petugasData[anom.email];
+            if (p.pml) pm = pmlData[p.pml];
+            if (p.koseka) ks = kosekaData[p.koseka];
+        }
+        
+        if (p) {
+            p.anomaliTotal = (p.anomaliTotal || 0) + 1;
+            if (anom.isDone) p.anomaliDone = (p.anomaliDone || 0) + 1;
+            if (!p.anomaliList) p.anomaliList = [];
+            p.anomaliList.push(anom);
+            
+            if (anom.type === 'usaha') {
+                p.anomaliUsahaTotal = (p.anomaliUsahaTotal || 0) + 1;
+                if (anom.isDone) p.anomaliUsahaDone = (p.anomaliUsahaDone || 0) + 1;
+            } else {
+                p.anomaliKeluargaTotal = (p.anomaliKeluargaTotal || 0) + 1;
+                if (anom.isDone) p.anomaliKeluargaDone = (p.anomaliKeluargaDone || 0) + 1;
+            }
+        }
+        if (pm) {
+            pm.anomaliTotal = (pm.anomaliTotal || 0) + 1;
+            if (anom.isDone) pm.anomaliDone = (pm.anomaliDone || 0) + 1;
+            if (anom.type === 'usaha') {
+                pm.anomaliUsahaTotal = (pm.anomaliUsahaTotal || 0) + 1;
+                if (anom.isDone) pm.anomaliUsahaDone = (pm.anomaliUsahaDone || 0) + 1;
+            } else {
+                pm.anomaliKeluargaTotal = (pm.anomaliKeluargaTotal || 0) + 1;
+                if (anom.isDone) pm.anomaliKeluargaDone = (pm.anomaliKeluargaDone || 0) + 1;
+            }
+        }
+        if (ks) {
+            ks.anomaliTotal = (ks.anomaliTotal || 0) + 1;
+            if (anom.isDone) ks.anomaliDone = (ks.anomaliDone || 0) + 1;
+            if (anom.type === 'usaha') {
+                ks.anomaliUsahaTotal = (ks.anomaliUsahaTotal || 0) + 1;
+                if (anom.isDone) ks.anomaliUsahaDone = (ks.anomaliUsahaDone || 0) + 1;
+            } else {
+                ks.anomaliKeluargaTotal = (ks.anomaliKeluargaTotal || 0) + 1;
+                if (anom.isDone) ks.anomaliKeluargaDone = (ks.anomaliKeluargaDone || 0) + 1;
+            }
+        }
+        if (kc) {
+            kc.anomaliTotal = (kc.anomaliTotal || 0) + 1;
+            if (anom.isDone) kc.anomaliDone = (kc.anomaliDone || 0) + 1;
+            if (anom.type === 'usaha') {
+                kc.anomaliUsahaTotal = (kc.anomaliUsahaTotal || 0) + 1;
+                if (anom.isDone) kc.anomaliUsahaDone = (kc.anomaliUsahaDone || 0) + 1;
+            } else {
+                kc.anomaliKeluargaTotal = (kc.anomaliKeluargaTotal || 0) + 1;
+                if (anom.isDone) kc.anomaliKeluargaDone = (kc.anomaliKeluargaDone || 0) + 1;
+            }
+        }
+    });
 }
 
 let statusDistributionChartInst = null;
@@ -525,6 +742,7 @@ let sortKecamatanDesc = true;
 function updateDashboard() {
     let globalTarget = 0;
     let gOpen = 0, gDraft = 0, gSub = 0, gApp = 0, gRej = 0, gRev = 0;
+    let gAnomaliDone = 0, gAnomaliTotal = 0;
 
     for (const email in petugasData) {
         const p = petugasData[email];
@@ -535,6 +753,8 @@ function updateDashboard() {
         gApp += p.approved;
         gRej += p.rejected;
         gRev += p.revoked;
+        gAnomaliDone += (p.anomaliDone || 0);
+        gAnomaliTotal += (p.anomaliTotal || 0);
     }
 
     // Populate overview numbers with animation
@@ -545,6 +765,64 @@ function updateDashboard() {
     animateValue("kpi-rejected", 0, gRej, 1000, ` <span style="font-size: 12px; color: var(--color-rejected); opacity: 0.75;">(${globalTarget > 0 ? ((gRej/globalTarget)*100).toFixed(1) : 0}%)</span>`);
     animateValue("kpi-revoked", 0, gRev, 1000, ` <span style="font-size: 12px; color: var(--color-revoked); opacity: 0.75;">(${globalTarget > 0 ? ((gRev/globalTarget)*100).toFixed(1) : 0}%)</span>`);
     animateValue("kpi-approved", 0, gApp, 1000, ` <span style="font-size: 12px; color: var(--color-approved); opacity: 0.75;">(${globalTarget > 0 ? ((gApp/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+
+    // Update Anomali Kabupaten Banner
+    const elAnomali = document.getElementById("kpi-anomaly-kabupaten");
+    const elAnomaliIcon = document.getElementById("kpi-anomaly-icon");
+    if (elAnomali) {
+        const uStats = window.statsAnomaliUsaha || { done: 0, total: 0 };
+        const kStats = window.statsAnomaliKeluarga || { done: 0, total: 0 };
+        
+        const totalDone = uStats.done + kStats.done;
+        const totalAnom = uStats.total + kStats.total;
+        
+        elAnomali.innerText = `${totalDone}/${totalAnom} Tuntas`;
+        
+        // Detailed breakdown
+        const elUsahaDone = document.getElementById("anom-usaha-done");
+        const elUsahaPending = document.getElementById("anom-usaha-pending");
+        const elUsahaTotal = document.getElementById("anom-usaha-total");
+        if (elUsahaDone && elUsahaPending && elUsahaTotal) {
+            elUsahaDone.innerText = uStats.done;
+            elUsahaPending.innerText = uStats.total - uStats.done;
+            elUsahaTotal.innerText = uStats.total;
+        }
+
+        const elUsahaTime = document.getElementById("anom-usaha-time");
+        if (elUsahaTime) {
+            elUsahaTime.innerText = window.anomaliUsahaTime ? `Dicetak: ${window.anomaliUsahaTime}` : '';
+        }
+
+        const elKeluargaDone = document.getElementById("anom-keluarga-done");
+        const elKeluargaPending = document.getElementById("anom-keluarga-pending");
+        const elKeluargaTotal = document.getElementById("anom-keluarga-total");
+        if (elKeluargaDone && elKeluargaPending && elKeluargaTotal) {
+            elKeluargaDone.innerText = kStats.done;
+            elKeluargaPending.innerText = kStats.total - kStats.done;
+            elKeluargaTotal.innerText = kStats.total;
+        }
+
+        const elKeluargaTime = document.getElementById("anom-keluarga-time");
+        if (elKeluargaTime) {
+            elKeluargaTime.innerText = window.anomaliKeluargaTime ? `Dicetak: ${window.anomaliKeluargaTime}` : '';
+        }
+
+        if (totalAnom === 0 || totalDone === totalAnom) {
+            elAnomali.style.color = "#10b981"; // green
+            elAnomali.parentElement.parentElement.style.borderLeftColor = "#10b981";
+            if (elAnomaliIcon) {
+                elAnomaliIcon.className = "ri-checkbox-circle-line";
+                elAnomaliIcon.style.color = "#10b981";
+            }
+        } else {
+            elAnomali.style.color = "#ff8b0e"; // warning orange
+            elAnomali.parentElement.parentElement.style.borderLeftColor = "#ff8b0e";
+            if (elAnomaliIcon) {
+                elAnomaliIcon.className = "ri-alert-line";
+                elAnomaliIcon.style.color = "#ff8b0e";
+            }
+        }
+    }
 
     // Calculate and animate Assignment Tersubmit percentage (excluding Open & Draft)
     const tersubmitCount = globalTarget - gOpen - gDraft;
@@ -649,11 +927,11 @@ function renderProgresPetugasList() {
         const pctPendataan = tersubmit / total * 100;
         const pctSubmit = (total - p.open - p.draft) / total * 100;
         const pctApprove = p.approved / total * 100;
-        return { name: p.namaLengkap, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove };
+        return { name: p.namaLengkap, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, anomaliDone: p.anomaliDone || 0, anomaliTotal: p.anomaliTotal || 0 };
     }).filter(Boolean);
     
     pList.sort((a, b) => sortPetugasDesc ? b.pendataan - a.pendataan : a.pendataan - b.pendataan);
-    listContainer.innerHTML = pList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve)).join('');
+    listContainer.innerHTML = pList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve, p.anomaliDone, p.anomaliTotal)).join('');
 }
 
 function renderProgresKecamatanList() {
@@ -667,11 +945,11 @@ function renderProgresKecamatanList() {
         const pctPendataan = tersubmit / total * 100;
         const pctSubmit = (total - k.open - k.draft) / total * 100;
         const pctApprove = k.approved / total * 100;
-        return { name: k.kecamatan, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove };
+        return { name: k.kecamatan, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, anomaliDone: k.anomaliDone || 0, anomaliTotal: k.anomaliTotal || 0 };
     }).filter(Boolean);
     
     kList.sort((a, b) => sortKecamatanDesc ? b.pendataan - a.pendataan : a.pendataan - b.pendataan);
-    listContainer.innerHTML = kList.map(k => makeTripleBar(k.name, k.pendataan, k.submit, k.approve)).join('');
+    listContainer.innerHTML = kList.map(k => makeTripleBar(k.name, k.pendataan, k.submit, k.approve, k.anomaliDone, k.anomaliTotal)).join('');
 }
 
 function renderKorwilTable() {
@@ -733,6 +1011,17 @@ function renderKorwilTable() {
         const colorSubmitted = getScaleColor(pctSubmitted);
         const colorPendataan = getScaleColor(pctPendataan);
 
+        const uDone = item.anomaliUsahaDone || 0;
+        const uTotal = item.anomaliUsahaTotal || 0;
+        const uPending = uTotal - uDone;
+
+        const kDone = item.anomaliKeluargaDone || 0;
+        const kTotal = item.anomaliKeluargaTotal || 0;
+        const kPending = kTotal - kDone;
+
+        const uText = uTotal > 0 ? `<span style="font-weight:600;"><span style="color:#10b981;">${uDone}</span><span style="color:var(--text-dim); margin:0 1px;">/</span><span style="color:#ef4444;">${uPending}</span> <span style="color:var(--text-muted); font-size:10px; font-weight:normal;">(${uTotal})</span></span>` : `<span style="color:var(--text-dim); font-size:11px;">-</span>`;
+        const kText = kTotal > 0 ? `<span style="font-weight:600;"><span style="color:#10b981;">${kDone}</span><span style="color:var(--text-dim); margin:0 1px;">/</span><span style="color:#ef4444;">${kPending}</span> <span style="color:var(--text-muted); font-size:10px; font-weight:normal;">(${kTotal})</span></span>` : `<span style="color:var(--text-dim); font-size:11px;">-</span>`;
+
         html += `
             <td><strong>${item.namaLengkap}</strong></td>
             <td>${item.totalTarget}</td>
@@ -754,6 +1043,8 @@ function renderKorwilTable() {
                     <span style="font-size:11px;color:var(--text-title); font-weight:600;">${pctPendataan}% <span style="opacity:0.8; font-weight:normal;">(${progresPendataan})</span></span>
                 </div>
             </td>
+            <td>${uText}</td>
+            <td>${kText}</td>
         `;
         tr.innerHTML = html;
         tbody.appendChild(tr);
@@ -1503,6 +1794,12 @@ function renderPclDetail(email) {
                 <span class="detail-section-title"><i class="ri-list-check"></i> Detail Target Muatan</span>
                 <div class="sls-list-container" id="detail-sls-list"></div>
             </div>
+
+            <!-- Detailed Anomaly Section -->
+            <div style="margin-top: 16px;">
+                <span class="detail-section-title"><i class="ri-alert-line"></i> Detail Anomali (${(data.anomaliList || []).length})</span>
+                <div class="sls-list-container" id="detail-anomaly-list" style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;"></div>
+            </div>
         </div>
     `;
 
@@ -1533,6 +1830,67 @@ function renderPclDetail(email) {
         `;
         listContainer.appendChild(card);
     });
+
+    // Render Anomaly Cards
+    const anomalyContainer = document.getElementById('detail-anomaly-list');
+    if (anomalyContainer) {
+        const anomalies = data.anomaliList || [];
+        if (anomalies.length === 0) {
+            anomalyContainer.innerHTML = `
+                <div style="text-align: center; padding: 20px; color: var(--text-dim); font-size: 11px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px dashed rgba(255,255,255,0.08);">
+                    <i class="ri-checkbox-circle-line" style="font-size: 16px; color: #10b981; display: block; margin-bottom: 4px;"></i>
+                    Bersih dari anomali data
+                </div>
+            `;
+        } else {
+            // Sort by Nama KRT ascending
+            const sortedAnom = [...anomalies].sort((a, b) => {
+                const nameA = (a.namaKrt || '').toLowerCase();
+                const nameB = (b.namaKrt || '').toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+            
+            sortedAnom.forEach(anom => {
+                const card = document.createElement('div');
+                card.className = 'sls-detail-card'; // Reuse premium card styling
+                card.style.borderLeft = anom.isDone ? '3px solid #10b981' : '3px solid #ef4444';
+                
+                const badgeTL = anom.isDone 
+                    ? `<span style="font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 600; display: inline-flex; align-items: center; gap: 3px;"><i class="ri-checkbox-circle-line"></i> Selesai</span>`
+                    : `<span style="font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(239, 68, 68, 0.15); color: #ef4444; font-weight: 600; display: inline-flex; align-items: center; gap: 3px;"><i class="ri-alert-line"></i> Belum</span>`;
+                
+                const badgeJenis = anom.type === 'usaha'
+                    ? `<span style="font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(59, 130, 246, 0.15); color: #3b82f6; font-weight: 600; text-transform: uppercase; display: inline-flex; align-items: center; gap: 3px;"><i class="ri-store-2-line"></i> Usaha</span>`
+                    : `<span style="font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(168, 85, 247, 0.15); color: #a855f7; font-weight: 600; text-transform: uppercase; display: inline-flex; align-items: center; gap: 3px;"><i class="ri-home-heart-line"></i> Keluarga</span>`;
+
+                card.innerHTML = `
+                    <div class="sls-card-header" style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                        <div style="min-width: 0; flex: 1;">
+                            <div class="sls-card-title" style="font-size: 11px; font-weight: 700; color: var(--text-title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${anom.namaKrt || 'N/A'}">${anom.namaKrt || 'N/A'}</div>
+                            <div style="font-size: 9px; color: var(--text-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Kec. ${anom.nmkec || '-'}, Desa ${anom.nmdesa || '-'}">
+                                <i class="ri-map-pin-line"></i> Kec. ${anom.nmkec || '-'}, Desa ${anom.nmdesa || '-'}
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:4px; align-items:center; flex-shrink:0;">
+                            ${badgeJenis}
+                            ${badgeTL}
+                        </div>
+                    </div>
+                    <div style="margin-top: 6px; font-size: 10px; color: var(--text-muted); line-height: 1.35; background: rgba(0,0,0,0.1); padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03); display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                        <div style="min-width: 0; flex: 1;">
+                            <strong style="color: var(--text-dim);">Masalah:</strong> ${anom.namaAnomali || 'Tidak ada deskripsi'}
+                        </div>
+                        ${anom.linkFasih && (anom.linkFasih.startsWith('http://') || anom.linkFasih.startsWith('https://')) ? `
+                            <a href="${anom.linkFasih}" target="_blank" style="display: inline-flex; align-items: center; gap: 3px; padding: 4px 8px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 9px; white-space: nowrap; transition: all 0.2s; box-shadow: 0 2px 4px rgba(37,99,235,0.25);">
+                                <i class="ri-external-link-line" style="font-size: 10px;"></i> Fasih
+                            </a>
+                        ` : ''}
+                    </div>
+                `;
+                anomalyContainer.appendChild(card);
+            });
+        }
+    }
 }
 
 function exportOverviewToExcel() {
@@ -1571,10 +1929,21 @@ function exportOverviewToExcel() {
     // ════════════════════════════════════════════════════
     // SECTION 2 — KPI RINGKASAN
     // ════════════════════════════════════════════════════
+    const uStats = window.statsAnomaliUsaha || { done: 0, total: 0 };
+    const kStats = window.statsAnomaliKeluarga || { done: 0, total: 0 };
+    const totalAnomDone = uStats.done + kStats.done;
+    const totalAnomTotal = uStats.total + kStats.total;
+    const pctAnom = totalAnomTotal > 0 ? (totalAnomDone / totalAnomTotal * 100).toFixed(2) : 0;
+    const pctAnomUsaha = uStats.total > 0 ? (uStats.done / uStats.total * 100).toFixed(2) : 0;
+    const pctAnomKeluarga = kStats.total > 0 ? (kStats.done / kStats.total * 100).toFixed(2) : 0;
+
     ws_data.push(['A. RINGKASAN KPI']);
     ws_data.push(['Indikator', 'Jumlah', 'Persentase']);
     ws_data.push(['Total Target SLS', globalTarget, '100%']);
     ws_data.push(['Assignment Tersubmit (Non Open/Draft)', tersubmit, `${pctDone}%`]);
+    ws_data.push(['Total Rekap Anomali (Tuntas/Total)', `${totalAnomDone}/${totalAnomTotal}`, `${pctAnom}%`]);
+    ws_data.push(['  - Anomali Usaha', `${uStats.done}/${uStats.total}`, `${pctAnomUsaha}%`]);
+    ws_data.push(['  - Anomali Keluarga', `${kStats.done}/${kStats.total}`, `${pctAnomKeluarga}%`]);
     blank(1);
     ws_data.push(['Detail Status Distribusi']);
     ws_data.push(['Status', 'Jumlah', 'Persentase (%)']);
@@ -1590,14 +1959,15 @@ function exportOverviewToExcel() {
     // SECTION 3 — PROGRES PETUGAS (PCL)
     // ════════════════════════════════════════════════════
     ws_data.push(['B. PROGRES PETUGAS (PCL)']);
-    ws_data.push(['Nama Petugas', 'PJ Kecamatan', 'Total Target', 'Tersubmit', '% Tersubmit', 'Submitted', 'Approved', 'Rejected', 'Revoked', 'Draft', 'Open']);
+    ws_data.push(['Nama Petugas', 'PJ Kecamatan', 'Total Target', 'Tersubmit', '% Tersubmit', 'Submitted', 'Approved', 'Rejected', 'Revoked', 'Draft', 'Open', 'Anomali (X/Y)']);
     const pList = Object.values(petugasData).map(p => {
         const ts = p.totalTarget - p.open - p.draft;
         const pct = p.totalTarget > 0 ? (ts / p.totalTarget * 100).toFixed(2) : 0;
         return { ...p, ts, pct };
     }).sort((a, b) => b.ts - a.ts);
     pList.forEach(p => {
-        ws_data.push([p.namaLengkap, p.koseka, p.totalTarget, p.ts, parseFloat(p.pct), p.submitted, p.approved, p.rejected, p.revoked, p.draft, p.open]);
+        const anomStr = `${p.anomaliDone || 0}/${p.anomaliTotal || 0}`;
+        ws_data.push([p.namaLengkap, p.koseka, p.totalTarget, p.ts, parseFloat(p.pct), p.submitted, p.approved, p.rejected, p.revoked, p.draft, p.open, anomStr]);
     });
     blank(2);
 
@@ -1605,14 +1975,15 @@ function exportOverviewToExcel() {
     // SECTION 4 — PROGRES KECAMATAN
     // ════════════════════════════════════════════════════
     ws_data.push(['C. PROGRES KECAMATAN']);
-    ws_data.push(['Kecamatan', 'Jml SLS', 'Total Target', 'Tersubmit', '% Tersubmit', 'Submitted', 'Approved', 'Rejected', 'Revoked', 'Draft', 'Open']);
+    ws_data.push(['Kecamatan', 'Jml SLS', 'Total Target', 'Tersubmit', '% Tersubmit', 'Submitted', 'Approved', 'Rejected', 'Revoked', 'Draft', 'Open', 'Anomali (X/Y)']);
     const kList = Object.values(kecamatanData).map(k => {
         const ts = k.totalTarget - k.open - k.draft;
         const pct = k.totalTarget > 0 ? (ts / k.totalTarget * 100).toFixed(2) : 0;
         return { ...k, ts, pct };
     }).sort((a, b) => b.ts - a.ts);
     kList.forEach(k => {
-        ws_data.push([k.kecamatan, k.slsCount, k.totalTarget, k.ts, parseFloat(k.pct), k.submitted, k.approved, k.rejected, k.revoked, k.draft, k.open]);
+        const anomStr = `${k.anomaliDone || 0}/${k.anomaliTotal || 0}`;
+        ws_data.push([k.kecamatan, k.slsCount, k.totalTarget, k.ts, parseFloat(k.pct), k.submitted, k.approved, k.rejected, k.revoked, k.draft, k.open, anomStr]);
     });
     blank(2);
 
@@ -1620,7 +1991,7 @@ function exportOverviewToExcel() {
     // SECTION 5 — PROGRES PJ KECAMATAN
     // ════════════════════════════════════════════════════
     ws_data.push(['D. PROGRES PJ KECAMATAN']);
-    ws_data.push(['Nama PJ Kecamatan', 'Total Target', '% Pendataan', '% Submit', '% Approve']);
+    ws_data.push(['Nama PJ Kecamatan', 'Total Target', '% Pendataan', '% Submit', '% Approve', 'Anomali (X/Y)']);
     const pjList = Object.keys(kosekaData).map(k => {
         const d = kosekaData[k];
         const total = d.totalTarget || 0;
@@ -1630,10 +2001,12 @@ function exportOverviewToExcel() {
             pendataan: parseFloat(((total - d.open) / total * 100).toFixed(2)),
             submit:    parseFloat((d.submitted / total * 100).toFixed(2)),
             approve:   parseFloat((d.approved  / total * 100).toFixed(2)),
+            anomaliDone: d.anomaliDone || 0,
+            anomaliTotal: d.anomaliTotal || 0
         };
     }).filter(Boolean).sort((a, b) => b.pendataan - a.pendataan);
     pjList.forEach(p => {
-        ws_data.push([p.name, p.total, p.pendataan, p.submit, p.approve]);
+        ws_data.push([p.name, p.total, p.pendataan, p.submit, p.approve, `${p.anomaliDone}/${p.anomaliTotal}`]);
     });
     blank(2);
 
@@ -1641,7 +2014,7 @@ function exportOverviewToExcel() {
     // SECTION 6 — PROGRES PML
     // ════════════════════════════════════════════════════
     ws_data.push(['E. PROGRES PML (PENGAWAS LAPANGAN)']);
-    ws_data.push(['Nama PML', 'Total Target', '% Pendataan', '% Submit', '% Approve']);
+    ws_data.push(['Nama PML', 'Total Target', '% Pendataan', '% Submit', '% Approve', 'Anomali (X/Y)']);
     const pmlList = Object.keys(pmlData).map(p => {
         const d = pmlData[p];
         const total = d.totalTarget || 0;
@@ -1651,10 +2024,12 @@ function exportOverviewToExcel() {
             pendataan: parseFloat(((total - d.open) / total * 100).toFixed(2)),
             submit:    parseFloat((d.submitted / total * 100).toFixed(2)),
             approve:   parseFloat((d.approved  / total * 100).toFixed(2)),
+            anomaliDone: d.anomaliDone || 0,
+            anomaliTotal: d.anomaliTotal || 0
         };
     }).filter(Boolean).sort((a, b) => b.pendataan - a.pendataan);
     pmlList.forEach(p => {
-        ws_data.push([p.name, p.total, p.pendataan, p.submit, p.approve]);
+        ws_data.push([p.name, p.total, p.pendataan, p.submit, p.approve, `${p.anomaliDone}/${p.anomaliTotal}`]);
     });
 
     // ════════════════════════════════════════════════════
