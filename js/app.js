@@ -2010,7 +2010,7 @@ function exportOverviewToExcel() {
         return {
             name: k, total,
             pendataan: parseFloat(((total - d.open) / total * 100).toFixed(2)),
-            submit:    parseFloat((d.submitted / total * 100).toFixed(2)),
+            submit:    parseFloat(((total - d.open - d.draft) / total * 100).toFixed(2)),
             approve:   parseFloat((d.approved  / total * 100).toFixed(2)),
             anomaliDone: d.anomaliDone || 0,
             anomaliTotal: d.anomaliTotal || 0
@@ -2033,7 +2033,7 @@ function exportOverviewToExcel() {
         return {
             name: p, total,
             pendataan: parseFloat(((total - d.open) / total * 100).toFixed(2)),
-            submit:    parseFloat((d.submitted / total * 100).toFixed(2)),
+            submit:    parseFloat(((total - d.open - d.draft) / total * 100).toFixed(2)),
             approve:   parseFloat((d.approved  / total * 100).toFixed(2)),
             anomaliDone: d.anomaliDone || 0,
             anomaliTotal: d.anomaliTotal || 0

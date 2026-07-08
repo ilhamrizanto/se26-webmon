@@ -48,8 +48,12 @@ body.light-theme {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(240, 245, 255, 0.45) 100%),
     url('../img/bg.jpg') center/cover no-repeat fixed;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100%;
+  height: 100dvh;
+  position: fixed;
+  width: 100%;
+  top: 0;
+  left: 0;
   display: flex;
   overflow: hidden;
 }
@@ -124,7 +128,7 @@ body.light-theme {
    APP SHELL
    ---------------------------------------------------------------- */
 .app-window {
-  width:100%; height:100vh; height:100dvh;
+  width:100%; height:100%;
   display:flex; overflow:hidden;
   isolation: isolate;
 }
