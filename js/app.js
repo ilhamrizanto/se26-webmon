@@ -3,8 +3,8 @@ const SHEET_DB_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/g
 const SHEET_NAMA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Nama`;
 const SHEET_SLS_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=SLS`;
 const SHEET_KORWIL_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Korwil`;
-const SHEET_ANOMALI_USAHA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Anomali%20Usaha`;
-const SHEET_ANOMALI_KELUARGA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Anomali%20Keluarga`;
+const SHEET_ANOMALI_USAHA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Master%20Usaha`;
+const SHEET_ANOMALI_KELUARGA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Master%20Keluarga`;
 
 // Global Data State
 let rawDataDB = [];
@@ -254,7 +254,7 @@ function parseAnomaliRows(rawRows) {
     let headerIdx = -1;
     for (let i = 0; i < Math.min(10, rawRows.length); i++) {
         const rowStr = (rawRows[i] || []).map(c => String(c || '').trim()).join(' ');
-        if (rowStr.toLowerCase().includes('kode desa') && (rowStr.toLowerCase().includes('tindak lanjut') || rowStr.toLowerCase().includes('kode sls'))) {
+        if (rowStr.toLowerCase().includes('kode desa') && (rowStr.toLowerCase().includes('checklist') || rowStr.toLowerCase().includes('tindak lanjut') || rowStr.toLowerCase().includes('kode sls'))) {
             headerIdx = i;
             break;
         }
@@ -267,9 +267,9 @@ function parseAnomaliRows(rawRows) {
     const idxDesa = headers.findIndex(h => h.toLowerCase().includes('kode desa'));
     const idxSLS = headers.findIndex(h => h.toLowerCase().includes('kode sls'));
     const idxSubSLS = headers.findIndex(h => h.toLowerCase().includes('sub sls'));
-    const idxTL = headers.findIndex(h => h.toLowerCase().includes('tindak lanjut'));
+    const idxTL = headers.findIndex(h => h.toLowerCase().includes('checklist') || h.toLowerCase().includes('tindak lanjut'));
     const idxEmail = headers.findIndex(h => h.toLowerCase().includes('email'));
-    const idxKrt = headers.findIndex(h => h.toLowerCase().includes('nama kepala keluarga') || h.toLowerCase().includes('nama usaha'));
+    const idxKrt = headers.findIndex(h => h.toLowerCase().includes('nama krt') || h.toLowerCase().includes('nama kepala keluarga') || h.toLowerCase().includes('nama usaha'));
     const idxKec = headers.findIndex(h => h.toLowerCase().includes('nama kecamatan'));
     const idxDesaName = headers.findIndex(h => h.toLowerCase().includes('nama desa/kel'));
     const idxAnom = headers.findIndex(h => h.toLowerCase().includes('nama anomali'));
@@ -296,7 +296,7 @@ function parseAnomaliRows(rawRows) {
         const idsubsls = desaPad + slsPad + subSlsPad;
         
         const tlVal = idxTL !== -1 ? String(row[idxTL] || '').trim().toLowerCase() : '';
-        const isDone = (tlVal.includes('sudah') || tlVal.includes('selesai') || tlVal.includes('ditindaklanjuti')) && !tlVal.includes('belum');
+        const isDone = tlVal === 'true' || tlVal === '1' || tlVal === 'yes' || ((tlVal.includes('sudah') || tlVal.includes('selesai') || tlVal.includes('ditindaklanjuti')) && !tlVal.includes('belum'));
         
         const email = idxEmail !== -1 ? String(row[idxEmail] || '').trim().toLowerCase() : '';
         const namaKrt = idxKrt !== -1 ? String(row[idxKrt] || '').trim() : '';
