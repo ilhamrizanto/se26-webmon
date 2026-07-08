@@ -377,6 +377,14 @@ function initApp() {
         rawAnomaliUsahaRows = rawAnomaliUsaha;
         rawAnomaliKeluargaRows = rawAnomaliKeluarga;
         
+        console.log("Debug Anomaly Sheets Loaded:");
+        console.log("Raw Usaha rows count:", rawAnomaliUsaha ? rawAnomaliUsaha.length : 0);
+        console.log("Raw Keluarga rows count:", rawAnomaliKeluarga ? rawAnomaliKeluarga.length : 0);
+        if (rawAnomaliUsaha && rawAnomaliUsaha.length > 0) {
+            console.log("Raw Usaha Row 0:", rawAnomaliUsaha[0]);
+            if (rawAnomaliUsaha.length > 1) console.log("Raw Usaha Row 1:", rawAnomaliUsaha[1]);
+        }
+        
         let timeStr = new Date().toLocaleString('id-ID');
         if (dbData && dbData.length > 0) {
             let foundTime = null;
@@ -644,6 +652,9 @@ function processAllData() {
     // 5. Parse and Aggregate Anomalies
     const listAnomaliUsaha = parseAnomaliRows(rawAnomaliUsahaRows);
     const listAnomaliKeluarga = parseAnomaliRows(rawAnomaliKeluargaRows);
+    
+    console.log("Parsed Usaha count:", listAnomaliUsaha.length);
+    console.log("Parsed Keluarga count:", listAnomaliKeluarga.length);
     
     window.anomaliUsahaTime = extractDicetakTime(rawAnomaliUsahaRows);
     window.anomaliKeluargaTime = extractDicetakTime(rawAnomaliKeluargaRows);
