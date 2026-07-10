@@ -112,7 +112,7 @@ function makeTripleBar(name, pendataan, submit, approve, anomaliDone = 0, anomal
                     <span class="pj-pml-pct">${submit.toFixed(1)}%</span>
                 </div>
                 <div class="pj-pml-bar-row">
-                    <span class="pj-pml-label">Approve</span>
+                    <span class="pj-pml-label">Periksa</span>
                     <div class="pj-pml-track">
                         <div class="pj-pml-fill" style="width:${wApp}%; background:${colApp};"></div>
                     </div>
@@ -135,7 +135,7 @@ function renderOverviewTables() {
             const tersubmit = total - data.open;
             const pctPendataan = tersubmit / total * 100;
             const pctSubmit = (total - data.open - data.draft) / total * 100;
-            const pctApprove = data.approved / total * 100;
+            const pctApprove = (data.rejected + data.revoked + data.approved) / total * 100;
             pjList.push({ name: k, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, anomaliDone: data.anomaliDone || 0, anomaliTotal: data.anomaliTotal || 0 });
         });
         pjList.sort((a, b) => sortPjDesc ? b.pendataan - a.pendataan : a.pendataan - b.pendataan);
@@ -153,7 +153,7 @@ function renderOverviewTables() {
             const tersubmit = total - data.open;
             const pctPendataan = tersubmit / total * 100;
             const pctSubmit = (total - data.open - data.draft) / total * 100;
-            const pctApprove = data.approved / total * 100;
+            const pctApprove = (data.rejected + data.revoked + data.approved) / total * 100;
             pmlList.push({ name: p, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, anomaliDone: data.anomaliDone || 0, anomaliTotal: data.anomaliTotal || 0 });
         });
         pmlList.sort((a, b) => sortPmlDesc ? b.pendataan - a.pendataan : a.pendataan - b.pendataan);
@@ -937,7 +937,7 @@ function renderProgresPetugasList() {
         const tersubmit = total - p.open;
         const pctPendataan = tersubmit / total * 100;
         const pctSubmit = (total - p.open - p.draft) / total * 100;
-        const pctApprove = p.approved / total * 100;
+        const pctApprove = (p.rejected + p.revoked + p.approved) / total * 100;
         return { name: p.namaLengkap, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, anomaliDone: p.anomaliDone || 0, anomaliTotal: p.anomaliTotal || 0 };
     }).filter(Boolean);
     
@@ -955,7 +955,7 @@ function renderProgresKecamatanList() {
         const tersubmit = total - k.open;
         const pctPendataan = tersubmit / total * 100;
         const pctSubmit = (total - k.open - k.draft) / total * 100;
-        const pctApprove = k.approved / total * 100;
+        const pctApprove = (k.rejected + k.revoked + k.approved) / total * 100;
         return { name: k.kecamatan, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, anomaliDone: k.anomaliDone || 0, anomaliTotal: k.anomaliTotal || 0 };
     }).filter(Boolean);
     
@@ -2002,7 +2002,7 @@ function exportOverviewToExcel() {
     // SECTION 5 — PROGRES PJ KECAMATAN
     // ════════════════════════════════════════════════════
     ws_data.push(['D. PROGRES PJ KECAMATAN']);
-    ws_data.push(['Nama PJ Kecamatan', 'Total Target', '% Pendataan', '% Submit', '% Approve', 'Anomali (X/Y)']);
+    ws_data.push(['Nama PJ Kecamatan', 'Total Target', '% Pendataan', '% Submit', '% Periksa', 'Anomali (X/Y)']);
     const pjList = Object.keys(kosekaData).map(k => {
         const d = kosekaData[k];
         const total = d.totalTarget || 0;
@@ -2025,7 +2025,7 @@ function exportOverviewToExcel() {
     // SECTION 6 — PROGRES PML
     // ════════════════════════════════════════════════════
     ws_data.push(['E. PROGRES PML (PENGAWAS LAPANGAN)']);
-    ws_data.push(['Nama PML', 'Total Target', '% Pendataan', '% Submit', '% Approve', 'Anomali (X/Y)']);
+    ws_data.push(['Nama PML', 'Total Target', '% Pendataan', '% Submit', '% Periksa', 'Anomali (X/Y)']);
     const pmlList = Object.keys(pmlData).map(p => {
         const d = pmlData[p];
         const total = d.totalTarget || 0;
