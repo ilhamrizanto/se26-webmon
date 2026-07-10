@@ -1537,6 +1537,8 @@ function renderHierarchyView() {
         const total = data.totalTarget || 0;
         const progressVal = total > 0 ? ((total - data.open - data.draft) / total * 100).toFixed(1) : "0.0";
         const pendataanVal = total > 0 ? ((total - data.open) / total * 100).toFixed(1) : "0.0";
+        const submitVal = total > 0 ? ((total - data.open - data.draft) / total * 100).toFixed(1) : "0.0";
+        const periksaVal = total > 0 ? (((data.rejected + data.revoked + data.approved) / total * 100)).toFixed(1) : "0.0";
         
         const card = document.createElement('div');
         card.className = 'hierarchy-card';
@@ -1547,20 +1549,29 @@ function renderHierarchyView() {
             <div style="display:flex; flex-direction:column; gap:4px; margin-bottom: 8px;">
                 <div>
                     <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
-                        <span style="color:var(--text-muted)">Tersubmit</span>
-                        <span style="color:var(--text-title);">${progressVal}%</span>
-                    </div>
-                    <div class="hierarchy-progress-bar" style="margin-top:2px;">
-                        <div class="hierarchy-progress-fill" style="width: ${progressVal}%; background: ${getProgressBarColor(progressVal)};"></div>
-                    </div>
-                </div>
-                <div>
-                    <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
                         <span style="color:var(--text-muted)">Pendataan</span>
                         <span style="color:var(--text-title);">${pendataanVal}%</span>
                     </div>
                     <div class="hierarchy-progress-bar" style="margin-top:2px;">
                         <div class="hierarchy-progress-fill" style="width: ${pendataanVal}%; background: ${getProgressBarColor(pendataanVal)};"></div>
+                    </div>
+                </div>
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
+                        <span style="color:var(--text-muted)">Submit</span>
+                        <span style="color:var(--text-title);">${submitVal}%</span>
+                    </div>
+                    <div class="hierarchy-progress-bar" style="margin-top:2px;">
+                        <div class="hierarchy-progress-fill" style="width: ${submitVal}%; background: ${getProgressBarColor(submitVal)};"></div>
+                    </div>
+                </div>
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
+                        <span style="color:var(--text-muted)">Periksa</span>
+                        <span style="color:var(--text-title);">${periksaVal}%</span>
+                    </div>
+                    <div class="hierarchy-progress-bar" style="margin-top:2px;">
+                        <div class="hierarchy-progress-fill" style="width: ${periksaVal}%; background: ${getProgressBarColor(periksaVal)};"></div>
                     </div>
                 </div>
             </div>
@@ -1611,6 +1622,8 @@ function renderPmlList(kosekaName) {
         const total = data.totalTarget || 0;
         const progressVal = total > 0 ? ((total - data.open - data.draft) / total * 100).toFixed(1) : "0.0";
         const pendataanVal = total > 0 ? ((total - data.open) / total * 100).toFixed(1) : "0.0";
+        const submitVal = total > 0 ? ((total - data.open - data.draft) / total * 100).toFixed(1) : "0.0";
+        const periksaVal = total > 0 ? (((data.rejected + data.revoked + data.approved) / total * 100)).toFixed(1) : "0.0";
 
         const card = document.createElement('div');
         card.className = 'hierarchy-card';
@@ -1621,20 +1634,29 @@ function renderPmlList(kosekaName) {
             <div style="display:flex; flex-direction:column; gap:4px; margin-bottom: 8px;">
                 <div>
                     <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
-                        <span style="color:var(--text-muted)">Tersubmit</span>
-                        <span style="color:var(--text-title);">${progressVal}%</span>
-                    </div>
-                    <div class="hierarchy-progress-bar" style="margin-top:2px;">
-                        <div class="hierarchy-progress-fill" style="width: ${progressVal}%; background: ${getProgressBarColor(progressVal)};"></div>
-                    </div>
-                </div>
-                <div>
-                    <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
                         <span style="color:var(--text-muted)">Pendataan</span>
                         <span style="color:var(--text-title);">${pendataanVal}%</span>
                     </div>
                     <div class="hierarchy-progress-bar" style="margin-top:2px;">
                         <div class="hierarchy-progress-fill" style="width: ${pendataanVal}%; background: ${getProgressBarColor(pendataanVal)};"></div>
+                    </div>
+                </div>
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
+                        <span style="color:var(--text-muted)">Submit</span>
+                        <span style="color:var(--text-title);">${submitVal}%</span>
+                    </div>
+                    <div class="hierarchy-progress-bar" style="margin-top:2px;">
+                        <div class="hierarchy-progress-fill" style="width: ${submitVal}%; background: ${getProgressBarColor(submitVal)};"></div>
+                    </div>
+                </div>
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
+                        <span style="color:var(--text-muted)">Periksa</span>
+                        <span style="color:var(--text-title);">${periksaVal}%</span>
+                    </div>
+                    <div class="hierarchy-progress-bar" style="margin-top:2px;">
+                        <div class="hierarchy-progress-fill" style="width: ${periksaVal}%; background: ${getProgressBarColor(periksaVal)};"></div>
                     </div>
                 </div>
             </div>
@@ -1679,6 +1701,8 @@ function renderPclList(pmlName) {
         const total = data.totalTarget || 0;
         const progressVal = total > 0 ? ((total - data.open - data.draft) / total * 100).toFixed(1) : "0.0";
         const pendataanVal = total > 0 ? ((total - data.open) / total * 100).toFixed(1) : "0.0";
+        const submitVal = total > 0 ? ((total - data.open - data.draft) / total * 100).toFixed(1) : "0.0";
+        const periksaVal = total > 0 ? (((data.rejected + data.revoked + data.approved) / total * 100)).toFixed(1) : "0.0";
 
         const card = document.createElement('div');
         card.className = 'hierarchy-card';
@@ -1689,20 +1713,29 @@ function renderPclList(pmlName) {
             <div style="display:flex; flex-direction:column; gap:4px; margin-bottom: 8px;">
                 <div>
                     <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
-                        <span style="color:var(--text-muted)">Tersubmit</span>
-                        <span style="color:var(--text-title);">${progressVal}%</span>
-                    </div>
-                    <div class="hierarchy-progress-bar" style="margin-top:2px;">
-                        <div class="hierarchy-progress-fill" style="width: ${progressVal}%; background: ${getProgressBarColor(progressVal)};"></div>
-                    </div>
-                </div>
-                <div>
-                    <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
                         <span style="color:var(--text-muted)">Pendataan</span>
                         <span style="color:var(--text-title);">${pendataanVal}%</span>
                     </div>
                     <div class="hierarchy-progress-bar" style="margin-top:2px;">
                         <div class="hierarchy-progress-fill" style="width: ${pendataanVal}%; background: ${getProgressBarColor(pendataanVal)};"></div>
+                    </div>
+                </div>
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
+                        <span style="color:var(--text-muted)">Submit</span>
+                        <span style="color:var(--text-title);">${submitVal}%</span>
+                    </div>
+                    <div class="hierarchy-progress-bar" style="margin-top:2px;">
+                        <div class="hierarchy-progress-fill" style="width: ${submitVal}%; background: ${getProgressBarColor(submitVal)};"></div>
+                    </div>
+                </div>
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
+                        <span style="color:var(--text-muted)">Periksa</span>
+                        <span style="color:var(--text-title);">${periksaVal}%</span>
+                    </div>
+                    <div class="hierarchy-progress-bar" style="margin-top:2px;">
+                        <div class="hierarchy-progress-fill" style="width: ${periksaVal}%; background: ${getProgressBarColor(periksaVal)};"></div>
                     </div>
                 </div>
             </div>
