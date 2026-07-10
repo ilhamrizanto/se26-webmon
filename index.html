@@ -13,7 +13,7 @@
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="img/se.png">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/style.css?v=68">
+    <link rel="stylesheet" href="css/style.css?v=74">
     <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -107,7 +107,25 @@
             <div class="sidebar-footer">
                 <div class="sync-info">
                     <span class="sync-label"><i class="ri-history-line"></i> LAST SYNC</span>
-                    <div id="last-sync" class="sync-time">-</div>
+                    <div id="last-sync" style="display: none;">-</div>
+                    <div class="sync-details" style="display:flex; flex-direction:column; gap:4px; margin-top:6px; font-size:10px; color:var(--text-muted);">
+                        <div style="display:flex; justify-content:space-between; gap: 8px;">
+                            <span>Pendataan:</span>
+                            <strong id="sync-pendataan" style="color:var(--text-title); font-weight: 500;">-</strong>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; gap: 8px;">
+                            <span>Anomali Usaha:</span>
+                            <strong id="sync-anomali-usaha" style="color:var(--text-title); font-weight: 500;">-</strong>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; gap: 8px;">
+                            <span>Anomali Keluarga:</span>
+                            <strong id="sync-anomali-keluarga" style="color:var(--text-title); font-weight: 500;">-</strong>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; gap: 8px;">
+                            <span>Status Usaha:</span>
+                            <strong id="sync-status-usaha" style="color:var(--text-title); font-weight: 500;">-</strong>
+                        </div>
+                    </div>
                 </div>
                 <button id="btn-refresh" class="btn-refresh btn-glow">
                     <i class="ri-refresh-line"></i> Sync Gsheet
@@ -430,6 +448,8 @@
                                         <th>Progres Pendataan</th>
                                         <th>Anomali Usaha</th>
                                         <th>Anomali Keluarga</th>
+                                        <th>Usaha Tutup</th>
+                                        <th>Usaha Tidak Ditemukan</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -677,6 +697,6 @@
     </div>
 
     <!-- Custom JS script -->
-    <script src="js/app.js?v=59"></script>
+    <script src="js/app.js?v=65"></script>
 </body>
 </html>

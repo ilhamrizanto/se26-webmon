@@ -5,6 +5,7 @@ const SHEET_SLS_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/
 const SHEET_KORWIL_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Korwil`;
 const SHEET_ANOMALI_USAHA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Master%20Usaha`;
 const SHEET_ANOMALI_KELUARGA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Master%20Keluarga`;
+const SHEET_STATUS_USAHA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Status%20Usaha`;
 
 // Global Data State
 let rawDataDB = [];
@@ -13,6 +14,7 @@ let rawSlsData = [];
 let rawKorwilData = [];
 let rawAnomaliUsahaRows = [];
 let rawAnomaliKeluargaRows = [];
+let rawStatusUsahaRows = [];
 
 let slsAssignments = []; // Unified data array
 let sortPjDesc = true;
@@ -68,14 +70,7 @@ function getProgressBarColor(pct) {
     return `hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%)`;
 }
 
-function makeTripleBar(name, pendataan, submit, approve, anomaliDone = 0, anomaliTotal = 0) {
-    const colPen = getProgressBarColor(pendataan);
-    const colSub = getProgressBarColor(submit);
-    const colApp = getProgressBarColor(approve);
-    const wPen   = Math.min(100, pendataan).toFixed(1);
-    const wSub   = Math.min(100, submit).toFixed(1);
-    const wApp   = Math.min(100, approve).toFixed(1);
-
+function makeBadgesRow(anomaliDone = 0, anomaliTotal = 0, usahaTutup = 0, usahaTidakDitemukan = 0) {
     let anomaliBadgeClass = 'anomali-none';
     let anomaliIcon = 'ri-checkbox-circle-line';
     if (anomaliTotal > 0) {
@@ -87,15 +82,35 @@ function makeTripleBar(name, pendataan, submit, approve, anomaliDone = 0, anomal
             anomaliIcon = 'ri-alert-line';
         }
     }
+    return `
+        <div style="display:flex; gap:4px; flex-wrap:nowrap; margin-bottom:8px; align-items:center; width:100%; overflow:hidden;">
+            <div class="anomali-badge ${anomaliBadgeClass}" title="Anomali: ${anomaliDone}/${anomaliTotal} Ditindaklanjuti" style="font-size:9.5px; padding:2px 6px; white-space:nowrap; display:inline-flex; align-items:center; gap:3px; flex-shrink:1; overflow:hidden;">
+                <i class="${anomaliIcon}" style="font-size:10px; flex-shrink:0;"></i> <span style="overflow:hidden; text-overflow:ellipsis;">Anomali: ${anomaliDone}/${anomaliTotal}</span>
+            </div>
+            <div class="anomali-badge" style="font-size:9.5px; padding:2px 6px; white-space:nowrap; display:inline-flex; align-items:center; gap:3px; flex-shrink:0; font-weight:600; ${usahaTutup > 0 ? 'background:rgba(217,119,6,0.1); color:#d97706; border:1px solid rgba(217,119,6,0.25);' : 'background:rgba(0,0,0,0.03); color:var(--text-dim); border:1px solid rgba(0,0,0,0.08);'}" title="Usaha Tutup: ${usahaTutup}">
+                <i class="ri-store-2-line" style="font-size:10px; font-weight:normal;"></i> ${usahaTutup}
+            </div>
+            <div class="anomali-badge" style="font-size:9.5px; padding:2px 6px; white-space:nowrap; display:inline-flex; align-items:center; gap:3px; flex-shrink:0; font-weight:600; ${usahaTidakDitemukan > 0 ? 'background:rgba(239,68,68,0.08); color:#dc2626; border:1px solid rgba(239,68,68,0.22);' : 'background:rgba(0,0,0,0.03); color:var(--text-dim); border:1px solid rgba(0,0,0,0.08);'}" title="Usaha Tidak Ditemukan: ${usahaTidakDitemukan}">
+                <i class="ri-map-pin-user-line" style="font-size:10px; font-weight:normal;"></i> ${usahaTidakDitemukan}
+            </div>
+        </div>
+    `;
+}
+
+function makeTripleBar(name, pendataan, submit, approve, anomaliDone = 0, anomaliTotal = 0, usahaTutup = 0, usahaTidakDitemukan = 0) {
+    const colPen = getProgressBarColor(pendataan);
+    const colSub = getProgressBarColor(submit);
+    const colApp = getProgressBarColor(approve);
+    const wPen   = Math.min(100, pendataan).toFixed(1);
+    const wSub   = Math.min(100, submit).toFixed(1);
+    const wApp   = Math.min(100, approve).toFixed(1);
 
     return `
         <div class="pj-pml-card">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:7px; gap:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; gap:8px;">
                 <div class="pj-pml-name" title="${name}" style="margin-bottom:0; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${name}</div>
-                <div class="anomali-badge ${anomaliBadgeClass}" title="Anomali: ${anomaliDone}/${anomaliTotal} Ditindaklanjuti">
-                    <i class="${anomaliIcon}"></i> Anomali: ${anomaliDone}/${anomaliTotal}
-                </div>
             </div>
+            ${makeBadgesRow(anomaliDone, anomaliTotal, usahaTutup, usahaTidakDitemukan)}
             <div class="pj-pml-bars">
                 <div class="pj-pml-bar-row">
                     <span class="pj-pml-label">Pendataan</span>
@@ -136,10 +151,15 @@ function renderOverviewTables() {
             const pctPendataan = tersubmit / total * 100;
             const pctSubmit = (total - data.open - data.draft) / total * 100;
             const pctApprove = (data.rejected + data.revoked + data.approved) / total * 100;
-            pjList.push({ name: k, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, anomaliDone: data.anomaliDone || 0, anomaliTotal: data.anomaliTotal || 0 });
+            pjList.push({ 
+                name: k, total, tersubmit, 
+                pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, 
+                anomaliDone: data.anomaliDone || 0, anomaliTotal: data.anomaliTotal || 0,
+                usahaTutup: data.usahaTutup || 0, usahaTidakDitemukan: data.usahaTidakDitemukan || 0
+            });
         });
         pjList.sort((a, b) => sortPjDesc ? b.pendataan - a.pendataan : a.pendataan - b.pendataan);
-        listPj.innerHTML = pjList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve, p.anomaliDone, p.anomaliTotal)).join('');
+        listPj.innerHTML = pjList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve, p.anomaliDone, p.anomaliTotal, p.usahaTutup, p.usahaTidakDitemukan)).join('');
     }
 
     // ── Progres PML ────────────────────────────────
@@ -154,10 +174,15 @@ function renderOverviewTables() {
             const pctPendataan = tersubmit / total * 100;
             const pctSubmit = (total - data.open - data.draft) / total * 100;
             const pctApprove = (data.rejected + data.revoked + data.approved) / total * 100;
-            pmlList.push({ name: p, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, anomaliDone: data.anomaliDone || 0, anomaliTotal: data.anomaliTotal || 0 });
+            pmlList.push({ 
+                name: p, total, tersubmit, 
+                pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, 
+                anomaliDone: data.anomaliDone || 0, anomaliTotal: data.anomaliTotal || 0,
+                usahaTutup: data.usahaTutup || 0, usahaTidakDitemukan: data.usahaTidakDitemukan || 0
+            });
         });
         pmlList.sort((a, b) => sortPmlDesc ? b.pendataan - a.pendataan : a.pendataan - b.pendataan);
-        listPml.innerHTML = pmlList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve, p.anomaliDone, p.anomaliTotal)).join('');
+        listPml.innerHTML = pmlList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve, p.anomaliDone, p.anomaliTotal, p.usahaTutup, p.usahaTidakDitemukan)).join('');
     }
 }
 
@@ -221,6 +246,7 @@ function fetchCSV(url) {
                     return obj;
                 });
                 
+                objects.rawRows = results.data;
                 resolve(objects);
             },
             error: function(err) {
@@ -320,14 +346,52 @@ function parseAnomaliRows(rawRows) {
     return items;
 }
 
-function extractDicetakTime(rawRows) {
-    if (!rawRows || rawRows.length < 2) return null;
-    const cellValue = String(rawRows[1][0] || '');
-    const idx = cellValue.toLowerCase().indexOf('dicetak:');
-    if (idx !== -1) {
-        return cellValue.substring(idx + 8).trim();
+function extractCellTime(rawRows, rowIndex, colIndex, searchLabel) {
+    if (!rawRows || rawRows.length <= rowIndex) return null;
+    const row = rawRows[rowIndex];
+    if (!row || row.length <= colIndex) return null;
+    
+    const cellValue = String(row[colIndex] || '');
+    const parsed = parseGSheetDate(cellValue);
+    if (!parsed) return null;
+    
+    if (searchLabel) {
+        const idx = parsed.toLowerCase().indexOf(searchLabel.toLowerCase());
+        if (idx !== -1) {
+            const part = parsed.substring(idx + searchLabel.length).trim();
+            const endIdx = part.indexOf('|');
+            return endIdx !== -1 ? part.substring(0, endIdx).trim() : part.trim();
+        }
     }
-    return null;
+    return parsed;
+}
+
+function parseStatusUsaha(rawRows) {
+    if (!rawRows || rawRows.length < 6) return {};
+    
+    const lookup = {};
+    for (let i = 5; i < rawRows.length; i++) {
+        const row = rawRows[i];
+        if (!row || row.length === 0) continue;
+        
+        const rawCode = String(row[0] || '').trim();
+        if (rawCode.length !== 16 || !/^\d+$/.test(rawCode)) continue;
+        
+        const cleanNumber = (val) => {
+            if (!val) return 0;
+            const cleanStr = String(val).replace(/[^0-9]/g, '');
+            return parseInt(cleanStr, 10) || 0;
+        };
+
+        const tutup = cleanNumber(row[4]);
+        const tidakDitemukan = cleanNumber(row[8]);
+        
+        lookup[rawCode] = {
+            tutup,
+            tidakDitemukan
+        };
+    }
+    return lookup;
 }
 
 function cleanName(name) {
@@ -368,63 +432,26 @@ function initApp() {
         fetchCSV(SHEET_SLS_URL),
         fetchCSV(SHEET_KORWIL_URL),
         fetchCSVRaw(SHEET_ANOMALI_USAHA_URL),
-        fetchCSVRaw(SHEET_ANOMALI_KELUARGA_URL)
-    ]).then(([dbData, namaData, slsDataRaw, korwilData, rawAnomaliUsaha, rawAnomaliKeluarga]) => {
+        fetchCSVRaw(SHEET_ANOMALI_KELUARGA_URL),
+        fetchCSVRaw(SHEET_STATUS_USAHA_URL)
+    ]).then(([dbData, namaData, slsDataRaw, korwilData, rawAnomaliUsaha, rawAnomaliKeluarga, rawStatusUsaha]) => {
         rawDataDB = dbData;
         rawNamaData = namaData;
         rawSlsData = slsDataRaw;
         rawKorwilData = korwilData;
         rawAnomaliUsahaRows = rawAnomaliUsaha;
         rawAnomaliKeluargaRows = rawAnomaliKeluarga;
+        rawStatusUsahaRows = rawStatusUsaha;
         
         console.log("Debug Anomaly Sheets Loaded:");
-        console.log("Raw Usaha rows count:", rawAnomaliUsaha ? rawAnomaliUsaha.length : 0);
-        console.log("Raw Keluarga rows count:", rawAnomaliKeluarga ? rawAnomaliKeluarga.length : 0);
-        if (rawAnomaliUsaha && rawAnomaliUsaha.length > 0) {
-            console.log("Raw Usaha Row 0:", rawAnomaliUsaha[0]);
-            if (rawAnomaliUsaha.length > 1) console.log("Raw Usaha Row 1:", rawAnomaliUsaha[1]);
-        }
+        console.log("Raw Usaha rows count:", rawAnomaliUsahaRows ? rawAnomaliUsahaRows.length : 0);
+        console.log("Raw Keluarga rows count:", rawAnomaliKeluargaRows ? rawAnomaliKeluargaRows.length : 0);
         
-        let timeStr = new Date().toLocaleString('id-ID');
-        if (dbData && dbData.length > 0) {
-            let foundTime = null;
-            
-            // 1. Try finding by column key matching 'sync'
-            const keys = Object.keys(dbData[0]);
-            const syncKey = keys.find(k => k && k.toLowerCase().replace(/[^a-z]/g, '').includes('sync'));
-            
-            if (syncKey) {
-                for (let i = 0; i < Math.min(10, dbData.length); i++) {
-                    const parsed = parseGSheetDate(dbData[i][syncKey]);
-                    if (parsed) {
-                        foundTime = parsed;
-                        break;
-                    }
-                }
-            }
-            
-            // 2. Fallback: Scan all cells in first 10 rows for Date(...) or date string
-            if (!foundTime) {
-                for (let i = 0; i < Math.min(10, dbData.length); i++) {
-                    const values = Object.values(dbData[i]);
-                    for (const val of values) {
-                        if (val) {
-                            const strVal = String(val);
-                            if (strVal.includes('Date(') || strVal.match(/\d{4}-\d{2}-\d{2}/) || strVal.match(/\d{2}\/\d{2}\/\d{4}/)) {
-                                foundTime = parseGSheetDate(val);
-                                break;
-                            }
-                        }
-                    }
-                    if (foundTime) break;
-                }
-            }
-            
-            if (foundTime) {
-                timeStr = foundTime;
-            }
-        }
-        console.log("Final timeStr:", timeStr);
+        // Cell-based timestamps extraction
+        const syncPendataan = extractCellTime(dbData.rawRows, 1, 10) || '-';
+        const syncAnomaliUsaha = extractCellTime(rawAnomaliUsahaRows, 1, 20, "dicetak:") || '-';
+        const syncAnomaliKeluarga = extractCellTime(rawAnomaliKeluargaRows, 1, 20, "dicetak:") || '-';
+        const syncStatusUsaha = extractCellTime(rawStatusUsahaRows, 1, 0, "diperbarui:") || '-';
         
         processAllData();
         updateDashboard();
@@ -434,10 +461,25 @@ function initApp() {
         populateFilterDropdowns();
         renderHierarchyView();
         
+        const elPendataan = document.getElementById('sync-pendataan');
+        if (elPendataan) elPendataan.innerText = syncPendataan;
+
+        const elAnomaliUsaha = document.getElementById('sync-anomali-usaha');
+        if (elAnomaliUsaha) elAnomaliUsaha.innerText = syncAnomaliUsaha;
+
+        const elAnomaliKeluarga = document.getElementById('sync-anomali-keluarga');
+        if (elAnomaliKeluarga) elAnomaliKeluarga.innerText = syncAnomaliKeluarga;
+
+        const elStatusUsaha = document.getElementById('sync-status-usaha');
+        if (elStatusUsaha) elStatusUsaha.innerText = syncStatusUsaha;
+
+        // Keep hidden last-sync element populated for excel export compatibility
+        const elLastSync = document.getElementById('last-sync');
+        if (elLastSync) elLastSync.innerText = syncPendataan;
+        
         // Hide loader, show app
         elLoader.style.display = 'none';
         elAppContent.style.display = 'flex';
-        elLastSync.innerText = timeStr;
     }).catch(err => {
         console.error("Error loading data:", err);
         elLoader.innerHTML = `
@@ -452,6 +494,7 @@ function initApp() {
 }
 
 function processAllData() {
+    const statusUsahaMap = parseStatusUsaha(rawStatusUsahaRows);
     // 1. Build maps for lookups
     const emailToNama = {};
     rawNamaData.forEach(row => {
@@ -535,6 +578,8 @@ function processAllData() {
             nmdesa: 'Belum Terpetakan'
         };
 
+        const statusUsaha = statusUsahaMap[slsIdRaw] || { tutup: 0, tidakDitemukan: 0 };
+
         slsAssignments.push({
             slsId: slsIdRaw,
             nmsls: sls.nmsls,
@@ -547,7 +592,9 @@ function processAllData() {
             koseka: koseka,
             pml: pml,
             open, draft, submitted, approved, rejected, revoked,
-            total
+            total,
+            usahaTutup: statusUsaha.tutup,
+            usahaTidakDitemukan: statusUsaha.tidakDitemukan
         });
     });
 
@@ -568,7 +615,9 @@ function processAllData() {
                 pml: item.pml,
                 totalTarget: 0,
                 open: 0, draft: 0, submitted: 0, approved: 0, rejected: 0, revoked: 0,
-                slsList: []
+                slsList: [],
+                usahaTutup: 0,
+                usahaTidakDitemukan: 0
             };
         }
         const p = petugasData[item.email];
@@ -579,6 +628,8 @@ function processAllData() {
         p.approved += item.approved;
         p.rejected += item.rejected;
         p.revoked += item.revoked;
+        p.usahaTutup += item.usahaTutup;
+        p.usahaTidakDitemukan += item.usahaTidakDitemukan;
         p.slsList.push(item);
 
         // PML Aggregate
@@ -590,7 +641,9 @@ function processAllData() {
                 totalTarget: 0,
                 open: 0, draft: 0, submitted: 0, approved: 0, rejected: 0, revoked: 0,
                 pcls: new Set(),
-                slsCount: 0
+                slsCount: 0,
+                usahaTutup: 0,
+                usahaTidakDitemukan: 0
             };
         }
         const pm = pmlData[pmlKey];
@@ -601,6 +654,8 @@ function processAllData() {
         pm.approved += item.approved;
         pm.rejected += item.rejected;
         pm.revoked += item.revoked;
+        pm.usahaTutup += item.usahaTutup;
+        pm.usahaTidakDitemukan += item.usahaTidakDitemukan;
         pm.pcls.add(item.email);
         pm.slsCount++;
 
@@ -613,7 +668,9 @@ function processAllData() {
                 open: 0, draft: 0, submitted: 0, approved: 0, rejected: 0, revoked: 0,
                 pmls: new Set(),
                 pcls: new Set(),
-                slsCount: 0
+                slsCount: 0,
+                usahaTutup: 0,
+                usahaTidakDitemukan: 0
             };
         }
         const ks = kosekaData[kosekaKey];
@@ -624,6 +681,8 @@ function processAllData() {
         ks.approved += item.approved;
         ks.rejected += item.rejected;
         ks.revoked += item.revoked;
+        ks.usahaTutup += item.usahaTutup;
+        ks.usahaTidakDitemukan += item.usahaTidakDitemukan;
         ks.pmls.add(item.pml);
         ks.pcls.add(item.email);
         ks.slsCount++;
@@ -635,7 +694,9 @@ function processAllData() {
                 kecamatan: kecKey,
                 totalTarget: 0,
                 open: 0, draft: 0, submitted: 0, approved: 0, rejected: 0, revoked: 0,
-                slsCount: 0
+                slsCount: 0,
+                usahaTutup: 0,
+                usahaTidakDitemukan: 0
             };
         }
         const kc = kecamatanData[kecKey];
@@ -646,6 +707,8 @@ function processAllData() {
         kc.approved += item.approved;
         kc.rejected += item.rejected;
         kc.revoked += item.revoked;
+        kc.usahaTutup += item.usahaTutup;
+        kc.usahaTidakDitemukan += item.usahaTidakDitemukan;
         kc.slsCount++;
     });
 
@@ -656,8 +719,8 @@ function processAllData() {
     console.log("Parsed Usaha count:", listAnomaliUsaha.length);
     console.log("Parsed Keluarga count:", listAnomaliKeluarga.length);
     
-    window.anomaliUsahaTime = extractDicetakTime(rawAnomaliUsahaRows);
-    window.anomaliKeluargaTime = extractDicetakTime(rawAnomaliKeluargaRows);
+    window.anomaliUsahaTime = extractCellTime(rawAnomaliUsahaRows, 1, 20, "dicetak:");
+    window.anomaliKeluargaTime = extractCellTime(rawAnomaliKeluargaRows, 1, 20, "dicetak:");
     
     listAnomaliUsaha.forEach(a => a.type = 'usaha');
     listAnomaliKeluarga.forEach(a => a.type = 'keluarga');
@@ -938,11 +1001,16 @@ function renderProgresPetugasList() {
         const pctPendataan = tersubmit / total * 100;
         const pctSubmit = (total - p.open - p.draft) / total * 100;
         const pctApprove = (p.rejected + p.revoked + p.approved) / total * 100;
-        return { name: p.namaLengkap, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, anomaliDone: p.anomaliDone || 0, anomaliTotal: p.anomaliTotal || 0 };
+        return { 
+            name: p.namaLengkap, total, tersubmit, 
+            pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, 
+            anomaliDone: p.anomaliDone || 0, anomaliTotal: p.anomaliTotal || 0,
+            usahaTutup: p.usahaTutup || 0, usahaTidakDitemukan: p.usahaTidakDitemukan || 0
+        };
     }).filter(Boolean);
     
     pList.sort((a, b) => sortPetugasDesc ? b.pendataan - a.pendataan : a.pendataan - b.pendataan);
-    listContainer.innerHTML = pList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve, p.anomaliDone, p.anomaliTotal)).join('');
+    listContainer.innerHTML = pList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve, p.anomaliDone, p.anomaliTotal, p.usahaTutup, p.usahaTidakDitemukan)).join('');
 }
 
 function renderProgresKecamatanList() {
@@ -956,11 +1024,16 @@ function renderProgresKecamatanList() {
         const pctPendataan = tersubmit / total * 100;
         const pctSubmit = (total - k.open - k.draft) / total * 100;
         const pctApprove = (k.rejected + k.revoked + k.approved) / total * 100;
-        return { name: k.kecamatan, total, tersubmit, pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, anomaliDone: k.anomaliDone || 0, anomaliTotal: k.anomaliTotal || 0 };
+        return { 
+            name: k.kecamatan, total, tersubmit, 
+            pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, 
+            anomaliDone: k.anomaliDone || 0, anomaliTotal: k.anomaliTotal || 0,
+            usahaTutup: k.usahaTutup || 0, usahaTidakDitemukan: k.usahaTidakDitemukan || 0
+        };
     }).filter(Boolean);
     
     kList.sort((a, b) => sortKecamatanDesc ? b.pendataan - a.pendataan : a.pendataan - b.pendataan);
-    listContainer.innerHTML = kList.map(k => makeTripleBar(k.name, k.pendataan, k.submit, k.approve, k.anomaliDone, k.anomaliTotal)).join('');
+    listContainer.innerHTML = kList.map(k => makeTripleBar(k.name, k.pendataan, k.submit, k.approve, k.anomaliDone, k.anomaliTotal, k.usahaTutup, k.usahaTidakDitemukan)).join('');
 }
 
 function renderKorwilTable() {
@@ -1056,6 +1129,8 @@ function renderKorwilTable() {
             </td>
             <td>${uText}</td>
             <td>${kText}</td>
+            <td><strong>${item.usahaTutup || 0}</strong></td>
+            <td><strong>${item.usahaTidakDitemukan || 0}</strong></td>
         `;
         tr.innerHTML = html;
         tbody.appendChild(tr);
@@ -1543,9 +1618,10 @@ function renderHierarchyView() {
         const card = document.createElement('div');
         card.className = 'hierarchy-card';
         card.innerHTML = `
-            <div class="hierarchy-card-header" style="margin-bottom: 6px;">
+            <div class="hierarchy-card-header" style="margin-bottom: 4px;">
                 <span class="hierarchy-card-title" title="${koseka}">${koseka}</span>
             </div>
+            ${makeBadgesRow(data.anomaliDone || 0, data.anomaliTotal || 0, data.usahaTutup || 0, data.usahaTidakDitemukan || 0)}
             <div style="display:flex; flex-direction:column; gap:4px; margin-bottom: 8px;">
                 <div>
                     <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
@@ -1628,9 +1704,10 @@ function renderPmlList(kosekaName) {
         const card = document.createElement('div');
         card.className = 'hierarchy-card';
         card.innerHTML = `
-            <div class="hierarchy-card-header" style="margin-bottom: 6px;">
+            <div class="hierarchy-card-header" style="margin-bottom: 4px;">
                 <span class="hierarchy-card-title" title="${pml}">${pml}</span>
             </div>
+            ${makeBadgesRow(data.anomaliDone || 0, data.anomaliTotal || 0, data.usahaTutup || 0, data.usahaTidakDitemukan || 0)}
             <div style="display:flex; flex-direction:column; gap:4px; margin-bottom: 8px;">
                 <div>
                     <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
@@ -1707,9 +1784,10 @@ function renderPclList(pmlName) {
         const card = document.createElement('div');
         card.className = 'hierarchy-card';
         card.innerHTML = `
-            <div class="hierarchy-card-header" style="margin-bottom: 6px;">
+            <div class="hierarchy-card-header" style="margin-bottom: 4px;">
                 <span class="hierarchy-card-title" title="${data.namaLengkap}">${data.namaLengkap}</span>
             </div>
+            ${makeBadgesRow(data.anomaliDone || 0, data.anomaliTotal || 0, data.usahaTutup || 0, data.usahaTidakDitemukan || 0)}
             <div style="display:flex; flex-direction:column; gap:4px; margin-bottom: 8px;">
                 <div>
                     <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
@@ -1807,29 +1885,41 @@ function renderPclDetail(email) {
 
             <!-- Status Distribution Breakdown -->
             <div class="detail-stats-grid" style="grid-template-columns: repeat(3, 1fr); gap:6px;">
-                <div class="detail-stat-card" style="border-left: 2px solid var(--color-open); padding: 6px;">
-                    <span class="label" style="font-size:8px;">Open</span>
-                    <strong class="value" style="font-size:12px; color:var(--color-open);">${data.open} <span style="font-size:10px; opacity:0.8; font-weight:normal;">(${total > 0 ? (data.open/total*100).toFixed(1) : "0.0"}%)</span></strong>
+                <div class="detail-stat-card" style="border-left: 2.5px solid var(--color-open); background: rgba(156, 163, 175, 0.06); padding: 8px 6px;">
+                    <span class="label" style="font-size:8px; color: var(--text-dim);">Open</span>
+                    <strong class="value" style="font-size:12px; color:var(--color-open);">${data.open} <span style="font-size:10px; opacity:0.8; font-weight:normal; color: var(--text-muted);">(${total > 0 ? (data.open/total*100).toFixed(1) : "0.0"}%)</span></strong>
                 </div>
-                <div class="detail-stat-card" style="border-left: 2px solid var(--color-draft); padding: 6px;">
-                    <span class="label" style="font-size:8px;">Draft</span>
-                    <strong class="value" style="font-size:12px; color:var(--color-draft);">${data.draft} <span style="font-size:10px; opacity:0.8; font-weight:normal;">(${total > 0 ? (data.draft/total*100).toFixed(1) : "0.0"}%)</span></strong>
+                <div class="detail-stat-card" style="border-left: 2.5px solid var(--color-draft); background: rgba(59, 130, 246, 0.06); padding: 8px 6px;">
+                    <span class="label" style="font-size:8px; color: var(--text-dim);">Draft</span>
+                    <strong class="value" style="font-size:12px; color:var(--color-draft);">${data.draft} <span style="font-size:10px; opacity:0.8; font-weight:normal; color: var(--text-muted);">(${total > 0 ? (data.draft/total*100).toFixed(1) : "0.0"}%)</span></strong>
                 </div>
-                <div class="detail-stat-card" style="border-left: 2px solid var(--color-submitted); padding: 6px;">
-                    <span class="label" style="font-size:8px;">Submitted</span>
-                    <strong class="value" style="font-size:12px; color:var(--color-submitted);">${data.submitted} <span style="font-size:10px; opacity:0.8; font-weight:normal;">(${total > 0 ? (data.submitted/total*100).toFixed(1) : "0.0"}%)</span></strong>
+                <div class="detail-stat-card" style="border-left: 2.5px solid var(--color-submitted); background: rgba(245, 158, 11, 0.06); padding: 8px 6px;">
+                    <span class="label" style="font-size:8px; color: var(--text-dim);">Submitted</span>
+                    <strong class="value" style="font-size:12px; color:var(--color-submitted);">${data.submitted} <span style="font-size:10px; opacity:0.8; font-weight:normal; color: var(--text-muted);">(${total > 0 ? (data.submitted/total*100).toFixed(1) : "0.0"}%)</span></strong>
                 </div>
-                <div class="detail-stat-card" style="border-left: 2px solid var(--color-rejected); padding: 6px;">
-                    <span class="label" style="font-size:8px;">Rejected</span>
-                    <strong class="value" style="font-size:12px; color:var(--color-rejected);">${data.rejected} <span style="font-size:10px; opacity:0.8; font-weight:normal;">(${total > 0 ? (data.rejected/total*100).toFixed(1) : "0.0"}%)</span></strong>
+                <div class="detail-stat-card" style="border-left: 2.5px solid var(--color-rejected); background: rgba(239, 68, 68, 0.06); padding: 8px 6px;">
+                    <span class="label" style="font-size:8px; color: var(--text-dim);">Rejected</span>
+                    <strong class="value" style="font-size:12px; color:var(--color-rejected);">${data.rejected} <span style="font-size:10px; opacity:0.8; font-weight:normal; color: var(--text-muted);">(${total > 0 ? (data.rejected/total*100).toFixed(1) : "0.0"}%)</span></strong>
                 </div>
-                <div class="detail-stat-card" style="border-left: 2px solid var(--color-revoked); padding: 6px;">
-                    <span class="label" style="font-size:8px;">Revoked</span>
-                    <strong class="value" style="font-size:12px; color:var(--color-revoked);">${data.revoked} <span style="font-size:10px; opacity:0.8; font-weight:normal;">(${total > 0 ? (data.revoked/total*100).toFixed(1) : "0.0"}%)</span></strong>
+                <div class="detail-stat-card" style="border-left: 2.5px solid var(--color-revoked); background: rgba(168, 85, 247, 0.06); padding: 8px 6px;">
+                    <span class="label" style="font-size:8px; color: var(--text-dim);">Revoked</span>
+                    <strong class="value" style="font-size:12px; color:var(--color-revoked);">${data.revoked} <span style="font-size:10px; opacity:0.8; font-weight:normal; color: var(--text-muted);">(${total > 0 ? (data.revoked/total*100).toFixed(1) : "0.0"}%)</span></strong>
                 </div>
-                <div class="detail-stat-card" style="border-left: 2px solid var(--color-approved); padding: 6px;">
-                    <span class="label" style="font-size:8px;">Approved</span>
-                    <strong class="value" style="font-size:12px; color:var(--color-approved);">${data.approved} <span style="font-size:10px; opacity:0.8; font-weight:normal;">(${total > 0 ? (data.approved/total*100).toFixed(1) : "0.0"}%)</span></strong>
+                <div class="detail-stat-card" style="border-left: 2.5px solid var(--color-approved); background: rgba(16, 185, 129, 0.06); padding: 8px 6px;">
+                    <span class="label" style="font-size:8px; color: var(--text-dim);">Approved</span>
+                    <strong class="value" style="font-size:12px; color:var(--color-approved);">${data.approved} <span style="font-size:10px; opacity:0.8; font-weight:normal; color: var(--text-muted);">(${total > 0 ? (data.approved/total*100).toFixed(1) : "0.0"}%)</span></strong>
+                </div>
+            </div>
+
+            <!-- Rekap Usaha Tutup & Tidak Ditemukan -->
+            <div class="detail-stats-grid" style="grid-template-columns: repeat(2, 1fr); gap:6px;">
+                <div class="detail-stat-card" style="border: 1px solid rgba(217, 119, 6, 0.25); border-left: 3px solid #d97706; background: linear-gradient(135deg, rgba(217, 119, 6, 0.08), rgba(217, 119, 6, 0.01)); padding: 8px 10px;">
+                    <span class="label" style="font-size:8.5px; color: #d97706; font-weight:700; letter-spacing:0.5px;">USAHA TUTUP (TOTAL)</span>
+                    <strong class="value" style="font-size:13px; color:#d97706; margin-top:2px;">${data.usahaTutup || 0} Usaha</strong>
+                </div>
+                <div class="detail-stat-card" style="border: 1px solid rgba(220, 38, 38, 0.25); border-left: 3px solid #dc2626; background: linear-gradient(135deg, rgba(220, 38, 38, 0.08), rgba(220, 38, 38, 0.01)); padding: 8px 10px;">
+                    <span class="label" style="font-size:8.5px; color: #dc2626; font-weight:700; letter-spacing:0.5px;">USAHA TIDAK DITEMUKAN (TOTAL)</span>
+                    <strong class="value" style="font-size:13px; color:#dc2626; margin-top:2px;">${data.usahaTidakDitemukan || 0} Usaha</strong>
                 </div>
             </div>
 
@@ -1863,13 +1953,19 @@ function renderPclDetail(email) {
                 <span><i class="ri-map-pin-line"></i> Kec. ${sls.kecamatan}, Desa ${sls.desa}</span>
                 <span><i class="ri-user-line"></i> Ketua: ${sls.namaKetua}</span>
             </div>
-            <div class="sls-card-stats">
-                <span style="color: var(--color-open)">Op: ${sls.open}</span>
-                <span style="color: var(--color-draft)">Dr: ${sls.draft}</span>
-                <span style="color: var(--color-submitted)">Su: ${sls.submitted}</span>
-                <span style="color: var(--color-rejected)">Rej: ${sls.rejected}</span>
-                <span style="color: var(--color-revoked)">Rev: ${sls.revoked}</span>
-                <span style="color: var(--color-approved)">Ap: ${sls.approved}</span>
+            <div class="sls-card-stats" style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: space-between; align-items: center; margin-top: 8px;">
+                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(156, 163, 175, 0.12); color: var(--color-open); font-size: 8.5px; font-weight:600;">Op: ${sls.open}</span>
+                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(59, 130, 246, 0.12); color: var(--color-draft); font-size: 8.5px; font-weight:600;">Dr: ${sls.draft}</span>
+                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(245, 158, 11, 0.12); color: var(--color-submitted); font-size: 8.5px; font-weight:600;">Su: ${sls.submitted}</span>
+                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(239, 68, 68, 0.12); color: var(--color-rejected); font-size: 8.5px; font-weight:600;">Rej: ${sls.rejected}</span>
+                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(168, 85, 247, 0.12); color: var(--color-revoked); font-size: 8.5px; font-weight:600;">Rev: ${sls.revoked}</span>
+                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(16, 185, 129, 0.12); color: var(--color-approved); font-size: 8.5px; font-weight:600;">Ap: ${sls.approved}</span>
+                </div>
+                <div style="display: flex; gap: 4px; align-items: center;">
+                    <span style="padding: 2px 5px; border-radius: 4px; background: ${sls.usahaTutup > 0 ? 'rgba(217, 119, 6, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.usahaTutup > 0 ? '#d97706' : 'var(--text-dim)'}; border: 1px solid ${sls.usahaTutup > 0 ? 'rgba(217, 119, 6, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Usaha Tutup"><i class="ri-store-2-line"></i> ${sls.usahaTutup || 0}</span>
+                    <span style="padding: 2px 5px; border-radius: 4px; background: ${sls.usahaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.usahaTidakDitemukan > 0 ? '#dc2626' : 'var(--text-dim)'}; border: 1px solid ${sls.usahaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Usaha Tidak Ditemukan"><i class="ri-map-pin-user-line"></i> ${sls.usahaTidakDitemukan || 0}</span>
+                </div>
             </div>
         `;
         listContainer.appendChild(card);
@@ -2003,7 +2099,7 @@ function exportOverviewToExcel() {
     // SECTION 3 — PROGRES PETUGAS (PCL)
     // ════════════════════════════════════════════════════
     ws_data.push(['B. PROGRES PETUGAS (PCL)']);
-    ws_data.push(['Nama Petugas', 'PJ Kecamatan', 'Total Target', 'Tersubmit', '% Tersubmit', 'Submitted', 'Approved', 'Rejected', 'Revoked', 'Draft', 'Open', 'Anomali (X/Y)']);
+    ws_data.push(['Nama Petugas', 'PJ Kecamatan', 'Total Target', 'Tersubmit', '% Tersubmit', 'Submitted', 'Approved', 'Rejected', 'Revoked', 'Draft', 'Open', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan']);
     const pList = Object.values(petugasData).map(p => {
         const ts = p.totalTarget - p.open - p.draft;
         const pct = p.totalTarget > 0 ? (ts / p.totalTarget * 100).toFixed(2) : 0;
@@ -2011,7 +2107,7 @@ function exportOverviewToExcel() {
     }).sort((a, b) => b.ts - a.ts);
     pList.forEach(p => {
         const anomStr = `${p.anomaliDone || 0}/${p.anomaliTotal || 0}`;
-        ws_data.push([p.namaLengkap, p.koseka, p.totalTarget, p.ts, parseFloat(p.pct), p.submitted, p.approved, p.rejected, p.revoked, p.draft, p.open, anomStr]);
+        ws_data.push([p.namaLengkap, p.koseka, p.totalTarget, p.ts, parseFloat(p.pct), p.submitted, p.approved, p.rejected, p.revoked, p.draft, p.open, anomStr, p.usahaTutup || 0, p.usahaTidakDitemukan || 0]);
     });
     blank(2);
 
@@ -2019,7 +2115,7 @@ function exportOverviewToExcel() {
     // SECTION 4 — PROGRES KECAMATAN
     // ════════════════════════════════════════════════════
     ws_data.push(['C. PROGRES KECAMATAN']);
-    ws_data.push(['Kecamatan', 'Jml SLS', 'Total Target', 'Tersubmit', '% Tersubmit', 'Submitted', 'Approved', 'Rejected', 'Revoked', 'Draft', 'Open', 'Anomali (X/Y)']);
+    ws_data.push(['Kecamatan', 'Jml SLS', 'Total Target', 'Tersubmit', '% Tersubmit', 'Submitted', 'Approved', 'Rejected', 'Revoked', 'Draft', 'Open', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan']);
     const kList = Object.values(kecamatanData).map(k => {
         const ts = k.totalTarget - k.open - k.draft;
         const pct = k.totalTarget > 0 ? (ts / k.totalTarget * 100).toFixed(2) : 0;
@@ -2027,7 +2123,7 @@ function exportOverviewToExcel() {
     }).sort((a, b) => b.ts - a.ts);
     kList.forEach(k => {
         const anomStr = `${k.anomaliDone || 0}/${k.anomaliTotal || 0}`;
-        ws_data.push([k.kecamatan, k.slsCount, k.totalTarget, k.ts, parseFloat(k.pct), k.submitted, k.approved, k.rejected, k.revoked, k.draft, k.open, anomStr]);
+        ws_data.push([k.kecamatan, k.slsCount, k.totalTarget, k.ts, parseFloat(k.pct), k.submitted, k.approved, k.rejected, k.revoked, k.draft, k.open, anomStr, k.usahaTutup || 0, k.usahaTidakDitemukan || 0]);
     });
     blank(2);
 
@@ -2035,7 +2131,7 @@ function exportOverviewToExcel() {
     // SECTION 5 — PROGRES PJ KECAMATAN
     // ════════════════════════════════════════════════════
     ws_data.push(['D. PROGRES PJ KECAMATAN']);
-    ws_data.push(['Nama PJ Kecamatan', 'Total Target', '% Pendataan', '% Submit', '% Periksa', 'Anomali (X/Y)']);
+    ws_data.push(['Nama PJ Kecamatan', 'Total Target', '% Pendataan', '% Submit', '% Periksa', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan']);
     const pjList = Object.keys(kosekaData).map(k => {
         const d = kosekaData[k];
         const total = d.totalTarget || 0;
@@ -2046,11 +2142,13 @@ function exportOverviewToExcel() {
             submit:    parseFloat(((total - d.open - d.draft) / total * 100).toFixed(2)),
             approve:   parseFloat((d.approved  / total * 100).toFixed(2)),
             anomaliDone: d.anomaliDone || 0,
-            anomaliTotal: d.anomaliTotal || 0
+            anomaliTotal: d.anomaliTotal || 0,
+            usahaTutup: d.usahaTutup || 0,
+            usahaTidakDitemukan: d.usahaTidakDitemukan || 0
         };
     }).filter(Boolean).sort((a, b) => b.pendataan - a.pendataan);
     pjList.forEach(p => {
-        ws_data.push([p.name, p.total, p.pendataan, p.submit, p.approve, `${p.anomaliDone}/${p.anomaliTotal}`]);
+        ws_data.push([p.name, p.total, p.pendataan, p.submit, p.approve, `${p.anomaliDone}/${p.anomaliTotal}`, p.usahaTutup, p.usahaTidakDitemukan]);
     });
     blank(2);
 
@@ -2058,7 +2156,7 @@ function exportOverviewToExcel() {
     // SECTION 6 — PROGRES PML
     // ════════════════════════════════════════════════════
     ws_data.push(['E. PROGRES PML (PENGAWAS LAPANGAN)']);
-    ws_data.push(['Nama PML', 'Total Target', '% Pendataan', '% Submit', '% Periksa', 'Anomali (X/Y)']);
+    ws_data.push(['Nama PML', 'Total Target', '% Pendataan', '% Submit', '% Periksa', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan']);
     const pmlList = Object.keys(pmlData).map(p => {
         const d = pmlData[p];
         const total = d.totalTarget || 0;
@@ -2069,11 +2167,13 @@ function exportOverviewToExcel() {
             submit:    parseFloat(((total - d.open - d.draft) / total * 100).toFixed(2)),
             approve:   parseFloat((d.approved  / total * 100).toFixed(2)),
             anomaliDone: d.anomaliDone || 0,
-            anomaliTotal: d.anomaliTotal || 0
+            anomaliTotal: d.anomaliTotal || 0,
+            usahaTutup: d.usahaTutup || 0,
+            usahaTidakDitemukan: d.usahaTidakDitemukan || 0
         };
     }).filter(Boolean).sort((a, b) => b.pendataan - a.pendataan);
     pmlList.forEach(p => {
-        ws_data.push([p.name, p.total, p.pendataan, p.submit, p.approve, `${p.anomaliDone}/${p.anomaliTotal}`]);
+        ws_data.push([p.name, p.total, p.pendataan, p.submit, p.approve, `${p.anomaliDone}/${p.anomaliTotal}`, p.usahaTutup, p.usahaTidakDitemukan]);
     });
 
     // ════════════════════════════════════════════════════
@@ -2094,13 +2194,16 @@ function exportOverviewToExcel() {
         { wch: 12 }, // I
         { wch: 10 }, // J
         { wch: 10 }, // K
+        { wch: 15 }, // L
+        { wch: 15 }, // M
+        { wch: 18 }, // N
     ];
 
-    // Merge title cells A1:K1
+    // Merge title cells A1:N1
     ws['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
-        { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } },
-        { s: { r: 2, c: 0 }, e: { r: 2, c: 10 } },
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 13 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 13 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 13 } },
     ];
 
     // Apply cell styles using xlsx-js-style
