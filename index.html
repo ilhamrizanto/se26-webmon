@@ -13,7 +13,7 @@
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="img/se.png">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/style.css?v=74">
+    <link rel="stylesheet" href="css/style.css?v=91">
     <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -93,6 +93,14 @@
                 <a href="#" class="nav-item" data-target="hierarchy">
                     <i class="ri-node-tree"></i>
                     <span>Monitor Hierarki</span>
+                </a>
+                <a href="#" class="nav-item" data-target="anomali">
+                    <i class="ri-alert-line"></i>
+                    <span>Anomali</span>
+                </a>
+                <a href="#" class="nav-item" data-target="status-usaha">
+                    <i class="ri-store-3-line"></i>
+                    <span>Status Usaha</span>
                 </a>
                 <a href="#" class="nav-item" data-target="petugas" style="display: none !important;">
                     <i class="ri-user-smile-line"></i>
@@ -636,6 +644,146 @@
                     </div>
                 </section>
 
+                <!-- ════════════════════════════════════════════ -->
+                <!-- Anomali Page -->
+                <!-- ════════════════════════════════════════════ -->
+                <section id="view-anomali" class="view-section">
+                    <div class="section-title-block">
+                        <div>
+                            <h1>Monitor Anomali</h1>
+                            <p>Pivot table anomali usaha &amp; keluarga &mdash; lengkap dengan filter hierarki, status, dan waktu.</p>
+                        </div>
+                    </div>
+
+                    <!-- Stats Summary Bar -->
+                    <div id="anomali-stats-bar" class="anom-stats-bar-wrapper"></div>
+
+                    <!-- Filter Bar -->
+                    <div class="anom-filter-bar glass-panel-inner">
+                        <div class="anom-filter-top">
+                            <button id="btn-toggle-anom-filters" class="anom-toggle-btn"><i class="ri-filter-3-line"></i> Filter ▼</button>
+                            <div class="anom-search-wrap">
+                                <i class="ri-search-line"></i>
+                                <input id="anom-search" type="text" placeholder="Cari nama usaha / KK / anomali..." autocomplete="off">
+                            </div>
+                            <div class="anom-status-group">
+                                <button class="anom-status-btn active" data-status="semua">Semua</button>
+                                <button class="anom-status-btn" data-status="belum"><i class="ri-time-line"></i> Pending</button>
+                                <button class="anom-status-btn" data-status="selesai"><i class="ri-checkbox-circle-line"></i> Selesai</button>
+                            </div>
+                            <button id="anom-filter-clear" class="anom-clear-btn" title="Reset semua filter"><i class="ri-refresh-line"></i></button>
+                        </div>
+                        <div id="anom-filters-body" class="anom-filters-body">
+                            <div class="anom-filter-row">
+                                <div class="anom-filter-group">
+                                    <label><i class="ri-government-line"></i> PJ Kecamatan</label>
+                                    <select id="anom-filter-pj"><option value="">Semua</option></select>
+                                </div>
+                                <div class="anom-filter-group">
+                                    <label><i class="ri-user-star-line"></i> PML</label>
+                                    <select id="anom-filter-pml"><option value="">Semua</option></select>
+                                </div>
+                                <div class="anom-filter-group">
+                                    <label><i class="ri-user-smile-line"></i> PCL</label>
+                                    <select id="anom-filter-pcl"><option value="">Semua</option></select>
+                                </div>
+                                <div class="anom-filter-group">
+                                    <label><i class="ri-refresh-line"></i> Waktu Sinkron</label>
+                                    <select id="anom-filter-sync"><option value="">Semua</option></select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dual Panel -->
+                    <div class="anomali-dual-panel">
+                        <!-- Panel Kiri: Usaha -->
+                        <div class="anomali-panel glass-panel-inner">
+                            <div class="anomali-panel-header">
+                                <span><i class="ri-store-2-line"></i> Anomali Usaha</span>
+                                <span class="badge-count" id="count-anomali-usaha">0</span>
+                            </div>
+                            <div class="anomali-panel-body" id="list-anomali-usaha">
+                                <div class="anom-empty"><i class="ri-inbox-2-line"></i><p>Pilih tab Anomali untuk memuat data</p></div>
+                            </div>
+                        </div>
+
+                        <!-- Panel Kanan: Keluarga -->
+                        <div class="anomali-panel glass-panel-inner">
+                            <div class="anomali-panel-header anomali-panel-header-keluarga">
+                                <span><i class="ri-home-heart-line"></i> Anomali Keluarga</span>
+                                <span class="badge-count" id="count-anomali-keluarga">0</span>
+                            </div>
+                            <div class="anomali-panel-body" id="list-anomali-keluarga">
+                                <div class="anom-empty"><i class="ri-inbox-2-line"></i><p>Pilih tab Anomali untuk memuat data</p></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ═══════════════════════════════════════════ -->
+                <!-- Status Usaha Page -->
+                <!-- ═══════════════════════════════════════════ -->
+                <section id="view-status-usaha" class="view-section">
+                    <div class="section-title-block">
+                        <div>
+                            <h1>Status Usaha</h1>
+                            <p>SLS yang memiliki usaha tutup atau tidak ditemukan &mdash; filter by PJ, PML, PCL dengan cascading otomatis.</p>
+                        </div>
+                    </div>
+
+                    <!-- Stats Summary Bar -->
+                    <div id="su-stats-bar" class="su-stats-bar-wrapper"></div>
+
+                    <!-- Filter Bar -->
+                    <div class="su-filter-bar glass-panel-inner">
+                        <div class="su-filter-top">
+                            <button id="btn-toggle-su-filters" class="su-toggle-btn"><i class="ri-filter-3-line"></i> Filter &#9660;</button>
+                            <div class="su-search-wrap">
+                                <i class="ri-search-line"></i>
+                                <input id="su-search" type="text" placeholder="Cari nama SLS, desa, kecamatan..." autocomplete="off">
+                            </div>
+                            <div class="su-sort-wrap">
+                                <label><i class="ri-sort-desc"></i></label>
+                                <select id="su-sort">
+                                    <option value="tidakDitemukan">TDK Terbanyak</option>
+                                    <option value="tutup">Tutup Terbanyak</option>
+                                    <option value="total">Total Masalah</option>
+                                    <option value="nama">Nama SLS A-Z</option>
+                                </select>
+                            </div>
+                            <button id="su-filter-clear" class="su-clear-btn" title="Reset semua filter"><i class="ri-refresh-line"></i></button>
+                        </div>
+                        <div id="su-filters-body" class="su-filters-body">
+                            <div class="su-filter-row">
+                                <div class="su-filter-group">
+                                    <label><i class="ri-government-line"></i> PJ Kecamatan</label>
+                                    <select id="su-filter-pj"><option value="">Semua</option></select>
+                                </div>
+                                <div class="su-filter-group">
+                                    <label><i class="ri-user-star-line"></i> PML</label>
+                                    <select id="su-filter-pml"><option value="">Semua</option></select>
+                                </div>
+                                <div class="su-filter-group">
+                                    <label><i class="ri-user-smile-line"></i> PCL</label>
+                                    <select id="su-filter-pcl"><option value="">Semua</option></select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card List -->
+                    <div class="su-panel glass-panel-inner">
+                        <div class="su-panel-header">
+                            <span><i class="ri-store-3-line"></i> Daftar SLS Bermasalah</span>
+                            <span class="badge-count" id="su-count">0</span>
+                        </div>
+                        <div class="su-card-list" id="su-card-list">
+                            <div class="su-empty"><i class="ri-inbox-2-line"></i><p>Pilih tab Status Usaha untuk memuat data</p></div>
+                        </div>
+                    </div>
+                </section>
+
             </div>
         </main>
     </div>
@@ -697,6 +845,6 @@
     </div>
 
     <!-- Custom JS script -->
-    <script src="js/app.js?v=65"></script>
+    <script src="js/app.js?v=69"></script>
 </body>
 </html>

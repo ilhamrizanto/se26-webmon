@@ -195,6 +195,8 @@ document.addEventListener("DOMContentLoaded", () => {
     setupModal();
     setupSorts();
     setupMobileMenu();
+    setupAnomalyFilters();
+    setupStatusUsahaFilters();
     
     document.getElementById('btn-refresh').addEventListener('click', () => {
         elAppContent.style.display = 'none';
@@ -274,6 +276,16 @@ function fetchCSVRaw(url) {
     });
 }
 
+function parseWaktuSinkron(val) {
+    const s = String(val || '').trim().replace(/\D/g, '');
+    if (s.length !== 4) return val ? String(val).trim() : '-';
+    const day = parseInt(s.slice(2), 10);
+    const mon = parseInt(s.slice(0, 2), 10);
+    const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'];
+    if (mon < 1 || mon > 12) return String(val).trim();
+    return `${day} ${months[mon-1]}`;
+}
+
 function parseAnomaliRows(rawRows) {
     if (!rawRows || rawRows.length === 0) return [];
     
@@ -300,6 +312,8 @@ function parseAnomaliRows(rawRows) {
     const idxDesaName = headers.findIndex(h => h.toLowerCase().includes('nama desa/kel'));
     const idxAnom = headers.findIndex(h => h.toLowerCase().includes('nama anomali'));
     const idxFasih = headers.findIndex(h => h.toLowerCase().includes('link fasih'));
+    const idxWaktuSinkron = headers.findIndex(h => h.toLowerCase().includes('waktu sinkron'));
+    const idxWaktuSelesai = headers.findIndex(h => h.toLowerCase().includes('waktu selesai'));
     
     if (idxDesa === -1 || idxSLS === -1 || idxSubSLS === -1) return [];
     
@@ -330,6 +344,9 @@ function parseAnomaliRows(rawRows) {
         const nmdesa = idxDesaName !== -1 ? String(row[idxDesaName] || '').trim() : '';
         const namaAnomali = idxAnom !== -1 ? String(row[idxAnom] || '').trim() : '';
         const linkFasih = idxFasih !== -1 ? String(row[idxFasih] || '').trim() : '';
+        const waktuSinkron = idxWaktuSinkron !== -1 ? parseWaktuSinkron(row[idxWaktuSinkron]) : '-';
+        const waktuSelesai = idxWaktuSelesai !== -1 ? parseWaktuSinkron(row[idxWaktuSelesai]) : '-';
+        const waktuSinkronRaw = idxWaktuSinkron !== -1 ? String(row[idxWaktuSinkron] || '').trim().replace(/\D/g,'') : '';
         
         items.push({
             idsubsls,
@@ -339,7 +356,10 @@ function parseAnomaliRows(rawRows) {
             nmkec,
             nmdesa,
             namaAnomali,
-            linkFasih
+            linkFasih,
+            waktuSinkron,
+            waktuSelesai,
+            waktuSinkronRaw
         });
     });
     
@@ -449,8 +469,8 @@ function initApp() {
         
         // Cell-based timestamps extraction
         const syncPendataan = extractCellTime(dbData.rawRows, 1, 10) || '-';
-        const syncAnomaliUsaha = extractCellTime(rawAnomaliUsahaRows, 1, 20, "dicetak:") || '-';
-        const syncAnomaliKeluarga = extractCellTime(rawAnomaliKeluargaRows, 1, 20, "dicetak:") || '-';
+        const syncAnomaliUsaha = extractCellTime(rawAnomaliUsahaRows, 1, 21, "dicetak:") || '-';
+        const syncAnomaliKeluarga = extractCellTime(rawAnomaliKeluargaRows, 1, 21, "dicetak:") || '-';
         const syncStatusUsaha = extractCellTime(rawStatusUsahaRows, 1, 0, "diperbarui:") || '-';
         
         processAllData();
@@ -472,6 +492,7 @@ function initApp() {
 
         const elStatusUsaha = document.getElementById('sync-status-usaha');
         if (elStatusUsaha) elStatusUsaha.innerText = syncStatusUsaha;
+        window.statusUsahaTime = syncStatusUsaha !== '-' ? syncStatusUsaha : '';
 
         // Keep hidden last-sync element populated for excel export compatibility
         const elLastSync = document.getElementById('last-sync');
@@ -528,6 +549,7 @@ function processAllData() {
             };
         }
     });
+    window.slsLookup = slsLookup;
 
     // 2. Build unified array
     slsAssignments = [];
@@ -806,7 +828,58 @@ function processAllData() {
                 if (anom.isDone) kc.anomaliKeluargaDone = (kc.anomaliKeluargaDone || 0) + 1;
             }
         }
+
+        // Enrich anomali item with PCL/PML/Koseka names and SLS name for the Anomali page
+        const slsInfo = (window.slsLookup || {})[anom.idsubsls] || {};
+        anom.nmsls = slsInfo.nmsls || '-';
+        if (asgn) {
+            anom.pclName = petugasData[asgn.email] ? petugasData[asgn.email].namaLengkap : (asgn.email || '-');
+            anom.pmlName = asgn.pml || '-';
+            anom.kosekaName = asgn.koseka || '-';
+            if (!anom.nmkec || anom.nmkec === '') anom.nmkec = asgn.kecamatan || '-';
+            if (!anom.nmdesa || anom.nmdesa === '') anom.nmdesa = asgn.desa || '-';
+        } else if (anom.email && petugasData[anom.email]) {
+            const pd = petugasData[anom.email];
+            anom.pclName = pd.namaLengkap || anom.email;
+            anom.pmlName = pd.pml || '-';
+            anom.kosekaName = pd.koseka || '-';
+        } else {
+            anom.pclName = anom.email || '-';
+            anom.pmlName = '-';
+            anom.kosekaName = '-';
+        }
     });
+
+    // Store enriched allAnomali globally for the Anomali page
+    window.allAnomali = allAnomali;
+
+    // Build status usaha SLS-level list for Status Usaha page
+    buildStatusUsahaList();
+}
+
+function buildStatusUsahaList() {
+    const list = [];
+    // Use slsAssignments which already has PJ/PML/PCL/SLS info + usahaTutup/usahaTidakDitemukan
+    // Deduplicate by slsId (one entry per SLS)
+    const seen = {};
+    slsAssignments.forEach(item => {
+        if (seen[item.slsId]) return;
+        seen[item.slsId] = true;
+        if (item.usahaTutup === 0 && item.usahaTidakDitemukan === 0) return; // only bermasalah
+        list.push({
+            slsId: item.slsId,
+            nmsls: item.nmsls,
+            desa: item.desa,
+            kecamatan: item.kecamatan,
+            koseka: item.koseka,
+            pml: item.pml,
+            pclName: item.namaLengkap,
+            tutup: item.usahaTutup,
+            tidakDitemukan: item.usahaTidakDitemukan,
+            total: item.usahaTutup + item.usahaTidakDitemukan
+        });
+    });
+    window.statusUsahaList = list;
 }
 
 let statusDistributionChartInst = null;
@@ -1486,8 +1559,492 @@ function setupNavigation() {
 
             views.forEach(v => v.classList.remove('active'));
             document.getElementById(`view-${targetId}`).classList.add('active');
+
+            if (targetId === 'anomali') {
+                renderAnomalyPage();
+            }
+            if (targetId === 'status-usaha') {
+                renderStatusUsahaPage();
+            }
+
+            // Close mobile sidebar
+            document.querySelector('.sidebar')?.classList.remove('open');
+            document.getElementById('sidebar-overlay')?.classList.remove('active');
         });
     });
+}
+
+// ═══════════════════════════════════════════════════════
+//  Anomali Page
+// ═══════════════════════════════════════════════════════
+
+let anomaliFilters = { pj: '', pml: '', pcl: '', status: 'semua', waktuSinkron: '', search: '' };
+const ANOMALI_PAGE_SIZE = 60;
+let anomaliPageUsaha = 1;
+let anomaliPageKeluarga = 1;
+
+function renderAnomalyPage() {
+    const allAnom = window.allAnomali || [];
+    const allUsaha = allAnom.filter(a => a.type === 'usaha');
+    const allKeluarga = allAnom.filter(a => a.type === 'keluarga');
+
+    // Populate filters once
+    populateAnomalyFilters(allAnom);
+
+    // Apply filters
+    const filtered = applyAnomalyFilters(allAnom);
+    const filteredUsaha = filtered.filter(a => a.type === 'usaha');
+    const filteredKeluarga = filtered.filter(a => a.type === 'keluarga');
+
+    // Stats
+    renderAnomalyStats(allAnom, filtered);
+
+    // Render lists (first page)
+    anomaliPageUsaha = 1;
+    anomaliPageKeluarga = 1;
+    renderAnomalyList('usaha', filteredUsaha);
+    renderAnomalyList('keluarga', filteredKeluarga);
+
+    // Update counts
+    const cu = document.getElementById('count-anomali-usaha');
+    const ck = document.getElementById('count-anomali-keluarga');
+    if (cu) cu.textContent = filteredUsaha.length;
+    if (ck) ck.textContent = filteredKeluarga.length;
+}
+
+function applyAnomalyFilters(list) {
+    const f = anomaliFilters;
+    return list.filter(a => {
+        if (f.pj && a.kosekaName !== f.pj) return false;
+        if (f.pml && a.pmlName !== f.pml) return false;
+        if (f.pcl && a.pclName !== f.pcl) return false;
+        if (f.status === 'selesai' && !a.isDone) return false;
+        if (f.status === 'belum' && a.isDone) return false;
+        if (f.waktuSinkron && a.waktuSinkron !== f.waktuSinkron) return false;
+        if (f.search) {
+            const q = f.search.toLowerCase();
+            const haystack = `${a.namaKrt} ${a.namaAnomali} ${a.nmsls} ${a.nmdesa} ${a.nmkec}`.toLowerCase();
+            if (!haystack.includes(q)) return false;
+        }
+        return true;
+    });
+}
+
+function populateAnomalyFilters(list) {
+    const selPJ = document.getElementById('anom-filter-pj');
+    const selPML = document.getElementById('anom-filter-pml');
+    const selPCL = document.getElementById('anom-filter-pcl');
+    const selSync = document.getElementById('anom-filter-sync');
+    if (!selPJ) return;
+
+    const pjs = [...new Set(list.map(a => a.kosekaName).filter(Boolean))].sort();
+    const pmls = [...new Set(list.map(a => a.pmlName).filter(Boolean))].sort();
+    const pcls = [...new Set(list.map(a => a.pclName).filter(Boolean))].sort();
+    
+    const syncMap = new Map();
+    list.forEach(a => {
+        if (a.waktuSinkron && a.waktuSinkron !== '-') {
+            syncMap.set(a.waktuSinkron, parseInt(a.waktuSinkronRaw || '0', 10));
+        }
+    });
+    const syncs = Array.from(syncMap.keys()).sort((a, b) => {
+        return syncMap.get(b) - syncMap.get(a);
+    });
+
+    const fillSelect = (el, opts, cur) => {
+        if (!el) return;
+        const prev = cur || el.value;
+        el.innerHTML = `<option value="">Semua</option>` + opts.map(o => `<option value="${o}" ${o===prev?'selected':''}>${o}</option>`).join('');
+    };
+    fillSelect(selPJ, pjs, anomaliFilters.pj);
+    fillSelect(selPML, pmls, anomaliFilters.pml);
+    fillSelect(selPCL, pcls, anomaliFilters.pcl);
+    fillSelect(selSync, syncs, anomaliFilters.waktuSinkron);
+}
+
+function renderAnomalyStats(all, filtered) {
+    const bar = document.getElementById('anomali-stats-bar');
+    if (!bar) return;
+    const total = all.length;
+    const done = all.filter(a => a.isDone).length;
+    const pending = total - done;
+    const pct = total > 0 ? Math.round(done / total * 100) : 0;
+    const totalU = all.filter(a => a.type === 'usaha').length;
+    const totalK = all.filter(a => a.type === 'keluarga').length;
+    const fTotal = filtered.length;
+    const fDone = filtered.filter(a => a.isDone).length;
+    const fPending = fTotal - fDone;
+
+    bar.innerHTML = `
+        <div class="anom-stats-grid">
+            <div class="anom-stat-pill anom-stat-total">
+                <i class="ri-alert-line"></i>
+                <div>
+                    <span class="anom-stat-num">${total}</span>
+                    <span class="anom-stat-label">Total Anomali</span>
+                </div>
+            </div>
+            <div class="anom-stat-pill anom-stat-done">
+                <i class="ri-checkbox-circle-line"></i>
+                <div>
+                    <span class="anom-stat-num">${done} <span style="font-size:12px;font-weight:500;">(${pct}%)</span></span>
+                    <span class="anom-stat-label">Selesai</span>
+                </div>
+            </div>
+            <div class="anom-stat-pill anom-stat-pending">
+                <i class="ri-time-line"></i>
+                <div>
+                    <span class="anom-stat-num">${pending}</span>
+                    <span class="anom-stat-label">Belum Selesai</span>
+                </div>
+            </div>
+            <div class="anom-stat-pill anom-stat-usaha">
+                <i class="ri-store-2-line"></i>
+                <div>
+                    <span class="anom-stat-num">${totalU}</span>
+                    <span class="anom-stat-label">Usaha</span>
+                </div>
+            </div>
+            <div class="anom-stat-pill anom-stat-keluarga">
+                <i class="ri-home-heart-line"></i>
+                <div>
+                    <span class="anom-stat-num">${totalK}</span>
+                    <span class="anom-stat-label">Keluarga</span>
+                </div>
+            </div>
+            ${fTotal < total ? `
+            <div class="anom-stat-pill anom-stat-filter">
+                <i class="ri-filter-3-line"></i>
+                <div>
+                    <span class="anom-stat-num">${fTotal} <span style="font-size:10px;font-weight:500;">(${fDone} selesai)</span></span>
+                    <span class="anom-stat-label">Hasil Filter</span>
+                </div>
+            </div>` : ''}
+        </div>
+    `;
+}
+
+function buildAnomalyCardHTML(anom) {
+    const statusClass = anom.isDone ? 'anom-card-done' : 'anom-card-pending';
+    const statusBadge = anom.isDone
+        ? `<span class="anom-status-badge anom-badge-done"><i class="ri-checkbox-circle-line"></i> Selesai</span>`
+        : `<span class="anom-status-badge anom-badge-pending"><i class="ri-time-line"></i> Pending</span>`;
+    const fasihBtn = anom.linkFasih
+        ? `<a href="${anom.linkFasih}" target="_blank" class="anom-fasih-btn" title="Buka di FASIH"><i class="ri-external-link-line"></i></a>`
+        : '';
+    const slsLabel = anom.nmsls && anom.nmsls !== '-' ? anom.nmsls : anom.idsubsls;
+    const desaKec = [anom.nmdesa, anom.nmkec].filter(v => v && v !== '-').join(', ');
+    const selesaiLine = anom.isDone && anom.waktuSelesai && anom.waktuSelesai !== '-'
+        ? `<span class="anom-time-chip anom-time-selesai"><i class="ri-check-line"></i> ${anom.waktuSelesai}</span>`
+        : '';
+
+    return `
+    <div class="anom-card ${statusClass}">
+        <div class="anom-card-toprow">
+            ${statusBadge}
+            <span class="anom-time-chip"><i class="ri-refresh-line"></i> ${anom.waktuSinkron || '-'}</span>
+            ${selesaiLine}
+            <span style="flex:1;"></span>
+            ${fasihBtn}
+        </div>
+        <div class="anom-card-name">${anom.namaKrt || '-'}</div>
+        <div class="anom-card-anomali">${anom.namaAnomali || '-'}</div>
+        <div class="anom-card-loc"><i class="ri-map-pin-2-line"></i> ${slsLabel}${desaKec ? ' · ' + desaKec : ''}</div>
+        <div class="anom-card-hierarchy">
+            <span title="PJ Kecamatan"><i class="ri-government-line"></i> ${anom.kosekaName || '-'}</span>
+            <span class="anom-hier-sep">·</span>
+            <span title="PML"><i class="ri-user-star-line"></i> ${anom.pmlName || '-'}</span>
+            <span class="anom-hier-sep">·</span>
+            <span title="PCL"><i class="ri-user-smile-line"></i> ${anom.pclName || '-'}</span>
+        </div>
+    </div>`;
+}
+
+function renderAnomalyList(type, list) {
+    const containerId = type === 'usaha' ? 'list-anomali-usaha' : 'list-anomali-keluarga';
+    const pageVar = type === 'usaha' ? 'anomaliPageUsaha' : 'anomaliPageKeluarga';
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const page = type === 'usaha' ? anomaliPageUsaha : anomaliPageKeluarga;
+    const sliced = list.slice(0, page * ANOMALI_PAGE_SIZE);
+    const hasMore = list.length > sliced.length;
+
+    if (list.length === 0) {
+        container.innerHTML = `<div class="anom-empty"><i class="ri-inbox-2-line"></i><p>Tidak ada data anomali</p></div>`;
+        return;
+    }
+
+    container.innerHTML = sliced.map(a => buildAnomalyCardHTML(a)).join('') +
+        (hasMore ? `<button class="anom-load-more" onclick="loadMoreAnomali('${type}')"><i class="ri-arrow-down-line"></i> Tampilkan lebih banyak (${list.length - sliced.length} lagi)</button>` : '');
+}
+
+function loadMoreAnomali(type) {
+    if (type === 'usaha') anomaliPageUsaha++;
+    else anomaliPageKeluarga++;
+    const allAnom = window.allAnomali || [];
+    const filtered = applyAnomalyFilters(allAnom);
+    const list = filtered.filter(a => a.type === type);
+    renderAnomalyList(type, list);
+}
+
+function setupAnomalyFilters() {
+    const ids = ['anom-filter-pj', 'anom-filter-pml', 'anom-filter-pcl', 'anom-filter-sync'];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('change', () => {
+            anomaliFilters.pj = document.getElementById('anom-filter-pj')?.value || '';
+            anomaliFilters.pml = document.getElementById('anom-filter-pml')?.value || '';
+            anomaliFilters.pcl = document.getElementById('anom-filter-pcl')?.value || '';
+            anomaliFilters.waktuSinkron = document.getElementById('anom-filter-sync')?.value || '';
+            renderAnomalyPage();
+        });
+    });
+
+    const statusBtns = document.querySelectorAll('.anom-status-btn');
+    statusBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            statusBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            anomaliFilters.status = btn.getAttribute('data-status');
+            renderAnomalyPage();
+        });
+    });
+
+    const searchEl = document.getElementById('anom-search');
+    if (searchEl) {
+        searchEl.addEventListener('input', () => {
+            anomaliFilters.search = searchEl.value;
+            renderAnomalyPage();
+        });
+    }
+
+    const toggleBtn = document.getElementById('btn-toggle-anom-filters');
+    const filterBody = document.getElementById('anom-filters-body');
+    if (toggleBtn && filterBody) {
+        toggleBtn.addEventListener('click', () => {
+            const isOpen = filterBody.classList.toggle('open');
+            toggleBtn.innerHTML = `<i class="ri-filter-3-line"></i> Filter ${isOpen ? '▲' : '▼'}`;
+        });
+    }
+
+    const clearBtn = document.getElementById('anom-filter-clear');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            anomaliFilters = { pj: '', pml: '', pcl: '', status: 'semua', waktuSinkron: '', search: '' };
+            ['anom-filter-pj','anom-filter-pml','anom-filter-pcl','anom-filter-sync'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            const searchEl = document.getElementById('anom-search');
+            if (searchEl) searchEl.value = '';
+            document.querySelectorAll('.anom-status-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+            renderAnomalyPage();
+        });
+    }
+}
+
+// ═══════════════════════════════════════════════════════
+//  Status Usaha Page
+// ═══════════════════════════════════════════════════════
+
+let suFilters = { pj: '', pml: '', pcl: '', search: '', sort: 'tidakDitemukan' };
+
+function renderStatusUsahaPage() {
+    const allList = window.statusUsahaList || [];
+    populateSuFilters(allList);
+    const filtered = applySuFilters(allList);
+    renderSuStats(allList, filtered);
+    renderSuCards(filtered);
+}
+
+function applySuFilters(list) {
+    const f = suFilters;
+    let result = list.filter(item => {
+        if (f.pj && item.koseka !== f.pj) return false;
+        if (f.pml && item.pml !== f.pml) return false;
+        if (f.pcl && item.pclName !== f.pcl) return false;
+        if (f.search) {
+            const q = f.search.toLowerCase();
+            const hay = `${item.nmsls} ${item.desa} ${item.kecamatan}`.toLowerCase();
+            if (!hay.includes(q)) return false;
+        }
+        return true;
+    });
+    if (f.sort === 'tidakDitemukan') result.sort((a, b) => b.tidakDitemukan - a.tidakDitemukan);
+    else if (f.sort === 'tutup') result.sort((a, b) => b.tutup - a.tutup);
+    else if (f.sort === 'total') result.sort((a, b) => b.total - a.total);
+    else if (f.sort === 'nama') result.sort((a, b) => a.nmsls.localeCompare(b.nmsls));
+    return result;
+}
+
+function populateSuFilters(allList) {
+    const selPJ  = document.getElementById('su-filter-pj');
+    const selPML = document.getElementById('su-filter-pml');
+    const selPCL = document.getElementById('su-filter-pcl');
+    if (!selPJ) return;
+
+    const allPJs = [...new Set(allList.map(i => i.koseka).filter(Boolean))].sort();
+
+    const pmlSource = suFilters.pj ? allList.filter(i => i.koseka === suFilters.pj) : allList;
+    const allPMLs = [...new Set(pmlSource.map(i => i.pml).filter(Boolean))].sort();
+
+    const pclSource = suFilters.pml ? pmlSource.filter(i => i.pml === suFilters.pml) : pmlSource;
+    const allPCLs = [...new Set(pclSource.map(i => i.pclName).filter(Boolean))].sort();
+
+    const fillSelect = (el, opts, cur) => {
+        if (!el) return;
+        el.innerHTML = `<option value="">Semua</option>` +
+            opts.map(o => `<option value="${o}" ${o === cur ? 'selected' : ''}>${o}</option>`).join('');
+    };
+    fillSelect(selPJ,  allPJs,  suFilters.pj);
+    fillSelect(selPML, allPMLs, suFilters.pml);
+    fillSelect(selPCL, allPCLs, suFilters.pcl);
+}
+
+function renderSuStats(all, filtered) {
+    const bar = document.getElementById('su-stats-bar');
+    if (!bar) return;
+    const totalSLS   = all.length;
+    const totalTutup = all.reduce((s, i) => s + i.tutup, 0);
+    const totalTDK   = all.reduce((s, i) => s + i.tidakDitemukan, 0);
+    const maxTDK     = all.reduce((m, i) => Math.max(m, i.tidakDitemukan), 0);
+    const syncTime   = window.statusUsahaTime || '';
+    const fSLS   = filtered.length;
+    const fTutup = filtered.reduce((s, i) => s + i.tutup, 0);
+    const fTDK   = filtered.reduce((s, i) => s + i.tidakDitemukan, 0);
+    const isFiltered = fSLS < totalSLS;
+
+    bar.innerHTML = `
+    <div class="su-stats-grid">
+        <div class="su-stat-pill su-stat-sls">
+            <i class="ri-map-pin-2-line"></i>
+            <div>
+                <span class="su-stat-num">${isFiltered ? fSLS + ' <span class="su-stat-of">/ ' + totalSLS + '</span>' : totalSLS}</span>
+                <span class="su-stat-label">SLS Bermasalah</span>
+            </div>
+        </div>
+        <div class="su-stat-pill su-stat-tutup">
+            <i class="ri-store-2-line"></i>
+            <div>
+                <span class="su-stat-num">${isFiltered ? fTutup + ' <span class="su-stat-of">/ ' + totalTutup + '</span>' : totalTutup}</span>
+                <span class="su-stat-label">Usaha Tutup</span>
+            </div>
+        </div>
+        <div class="su-stat-pill su-stat-tdk">
+            <i class="ri-map-pin-user-line"></i>
+            <div>
+                <span class="su-stat-num">${isFiltered ? fTDK + ' <span class="su-stat-of">/ ' + totalTDK + '</span>' : totalTDK}</span>
+                <span class="su-stat-label">Tidak Ditemukan</span>
+            </div>
+        </div>
+        <div class="su-stat-pill su-stat-max">
+            <i class="ri-alarm-warning-line"></i>
+            <div>
+                <span class="su-stat-num">${maxTDK}</span>
+                <span class="su-stat-label">Maks TDK / SLS</span>
+            </div>
+        </div>
+        ${syncTime ? `<div class="su-stat-pill su-stat-sync">
+            <i class="ri-time-line"></i>
+            <div>
+                <span class="su-stat-num" style="font-size:14px;">${syncTime}</span>
+                <span class="su-stat-label">Update Terakhir</span>
+            </div>
+        </div>` : ''}
+    </div>`;
+}
+
+function buildSuCardHTML(item) {
+    const tdkLevel = item.tidakDitemukan > 5 ? 'danger' : item.tidakDitemukan > 0 ? 'warning' : 'neutral';
+    return `
+    <div class="su-card su-card-${tdkLevel}">
+        <div class="su-card-top">
+            <div class="su-card-left">
+                <div class="su-card-sls">${item.nmsls || item.slsId}</div>
+                <div class="su-card-loc"><i class="ri-map-2-line"></i> ${[item.desa, item.kecamatan].filter(v => v && v !== 'Belum Terpetakan').join(' · ')}</div>
+            </div>
+            <div class="su-card-metrics">
+                <div class="su-metric-chip su-chip-tutup">
+                    <i class="ri-store-2-line"></i>
+                    <span class="su-metric-num">${item.tutup}</span>
+                    <span class="su-metric-label">Tutup</span>
+                </div>
+                <div class="su-metric-chip su-chip-${tdkLevel}">
+                    <i class="ri-map-pin-user-line"></i>
+                    <span class="su-metric-num">${item.tidakDitemukan}</span>
+                    <span class="su-metric-label">TDK</span>
+                </div>
+            </div>
+        </div>
+        <div class="su-card-hierarchy">
+            <span title="PJ Kecamatan"><i class="ri-government-line"></i> ${item.koseka || '-'}</span>
+            <span class="su-hier-sep">·</span>
+            <span title="PML"><i class="ri-user-star-line"></i> ${item.pml || '-'}</span>
+            <span class="su-hier-sep">·</span>
+            <span title="PCL"><i class="ri-user-smile-line"></i> ${item.pclName || '-'}</span>
+        </div>
+    </div>`;
+}
+
+function renderSuCards(list) {
+    const el = document.getElementById('su-card-list');
+    if (!el) return;
+    const countEl = document.getElementById('su-count');
+    if (countEl) countEl.textContent = list.length;
+    if (list.length === 0) {
+        el.innerHTML = `<div class="su-empty"><i class="ri-inbox-2-line"></i><p>Tidak ada SLS bermasalah yang sesuai filter</p></div>`;
+        return;
+    }
+    el.innerHTML = list.map(item => buildSuCardHTML(item)).join('');
+}
+
+function setupStatusUsahaFilters() {
+    const selPJ   = document.getElementById('su-filter-pj');
+    const selPML  = document.getElementById('su-filter-pml');
+    const selPCL  = document.getElementById('su-filter-pcl');
+    const selSort = document.getElementById('su-sort');
+    const searchEl  = document.getElementById('su-search');
+    const clearBtn  = document.getElementById('su-filter-clear');
+    const toggleBtn = document.getElementById('btn-toggle-su-filters');
+    const filterBody = document.getElementById('su-filters-body');
+
+    if (selPJ) selPJ.addEventListener('change', () => {
+        suFilters.pj = selPJ.value; suFilters.pml = ''; suFilters.pcl = '';
+        renderStatusUsahaPage();
+    });
+    if (selPML) selPML.addEventListener('change', () => {
+        suFilters.pml = selPML.value; suFilters.pcl = '';
+        renderStatusUsahaPage();
+    });
+    if (selPCL) selPCL.addEventListener('change', () => {
+        suFilters.pcl = selPCL.value;
+        renderStatusUsahaPage();
+    });
+    if (selSort) selSort.addEventListener('change', () => {
+        suFilters.sort = selSort.value;
+        renderStatusUsahaPage();
+    });
+    if (searchEl) searchEl.addEventListener('input', () => {
+        suFilters.search = searchEl.value;
+        renderStatusUsahaPage();
+    });
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+        suFilters = { pj: '', pml: '', pcl: '', search: '', sort: 'tidakDitemukan' };
+        if (selPJ) selPJ.value = '';
+        if (selPML) selPML.value = '';
+        if (selPCL) selPCL.value = '';
+        if (selSort) selSort.value = 'tidakDitemukan';
+        if (searchEl) searchEl.value = '';
+        renderStatusUsahaPage();
+    });
+    if (toggleBtn && filterBody) {
+        toggleBtn.addEventListener('click', () => {
+            const isOpen = filterBody.classList.toggle('open');
+            toggleBtn.innerHTML = `<i class="ri-filter-3-line"></i> Filter ${isOpen ? '▲' : '▼'}`;
+        });
+    }
 }
 
 function setupSearch() {
