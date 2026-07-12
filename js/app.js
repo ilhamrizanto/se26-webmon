@@ -1728,7 +1728,7 @@ function buildAnomalyCardHTML(anom) {
     const statusClass = anom.isDone ? 'anom-card-done' : 'anom-card-pending';
     const statusBadge = anom.isDone
         ? `<span class="anom-status-badge anom-badge-done"><i class="ri-checkbox-circle-line"></i> Selesai</span>`
-        : `<span class="anom-status-badge anom-badge-pending"><i class="ri-time-line"></i> Pending</span>`;
+        : `<span class="anom-status-badge anom-badge-pending"><i class="ri-time-line"></i> Belum Selesai</span>`;
     const fasihBtn = anom.linkFasih
         ? `<a href="${anom.linkFasih}" target="_blank" class="anom-fasih-btn" title="Buka di FASIH"><i class="ri-external-link-line"></i></a>`
         : '';
