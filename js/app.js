@@ -392,10 +392,10 @@ function extractCellTime(rawRows, rowIndex, colIndex, searchLabel) {
 }
 
 function parseStatusUsaha(rawRows) {
-    if (!rawRows || rawRows.length < 6) return {};
+    if (!rawRows || rawRows.length < 7) return {};
     
     const lookup = {};
-    for (let i = 5; i < rawRows.length; i++) {
+    for (let i = 6; i < rawRows.length; i++) {
         const row = rawRows[i];
         if (!row || row.length === 0) continue;
         
@@ -408,8 +408,8 @@ function parseStatusUsaha(rawRows) {
             return parseInt(cleanStr, 10) || 0;
         };
 
-        const tutup = cleanNumber(row[4]);
-        const tidakDitemukan = cleanNumber(row[8]);
+        const tutup = cleanNumber(row[5]);
+        const tidakDitemukan = cleanNumber(row[9]);
         
         lookup[rawCode] = {
             tutup,
@@ -500,7 +500,13 @@ function initApp() {
         console.log("Raw Keluarga rows count:", rawAnomaliKeluargaRows ? rawAnomaliKeluargaRows.length : 0);
         
         // Cell-based timestamps extraction
-        const syncPendataan = extractCellTime(dbData.rawRows, 1, 12) || '-';
+        let syncPendataanCol = 10;
+        if (dbData.rawRows && dbData.rawRows.length > 0) {
+            const headerRow = dbData.rawRows[0];
+            const foundIdx = headerRow.findIndex(h => String(h).trim().toLowerCase() === 'sync_time');
+            if (foundIdx !== -1) syncPendataanCol = foundIdx;
+        }
+        const syncPendataan = extractCellTime(dbData.rawRows, 1, syncPendataanCol) || '-';
         const syncAnomaliUsaha = extractCellTime(rawAnomaliUsahaRows, 1, 21, "dicetak:") || '-';
         const syncAnomaliKeluarga = extractCellTime(rawAnomaliKeluargaRows, 1, 21, "dicetak:") || '-';
         const syncStatusUsaha = extractCellTime(rawStatusUsahaRows, 1, 0, "diperbarui:") || '-';
