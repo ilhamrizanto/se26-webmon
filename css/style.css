@@ -266,7 +266,7 @@ body.light-theme {
    KPI CARDS
    ---------------------------------------------------------------- */
 .kpi-grid        { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-bottom:16px; }
-.kpi-grid-status { display:grid; grid-template-columns:repeat(6,1fr); gap:16px; margin-bottom:16px; }
+.kpi-grid-status { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:16px; }
 
 .kpi-card { padding:16px 18px; border-radius:14px; min-height:96px; display:flex; flex-direction:column; justify-content:space-between; min-width:0; }
 .kpi-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
@@ -1342,7 +1342,7 @@ body.light-theme {
     display: flex; justify-content: space-between; align-items: flex-start;
     gap: 10px; margin-bottom: 8px;
 }
-.su-card-left { flex: 1; min-width: 0; }
+.su-card-left { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .su-card-sls {
     font-family: 'Outfit', sans-serif; font-size: 13.5px; font-weight: 700;
     color: var(--text-title); line-height: 1.2; margin-bottom: 3px;
@@ -1396,6 +1396,25 @@ body.light-theme {
 .su-empty i { font-size: 40px; opacity: 0.35; }
 .su-empty p { font-size: 13px; color: var(--text-muted); }
 
+/* Clickable card */
+.su-card-clickable { cursor: pointer; }
+.su-card-clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    border-color: rgba(99,102,241,0.35);
+}
+.su-card-clickable:active { transform: translateY(0); }
+
+/* Catatan (note) badge on card */
+.su-catatan-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 700; color: #7c3aed;
+    background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.2);
+    border-radius: 20px; padding: 2px 8px; margin-top: 4px;
+    align-self: flex-start;
+}
+.su-catatan-badge i { font-size: 11px; }
+
 /* Mobile — workspace-scrollable scrolls the page, panel is natural height */
 @media (max-width: 768px) {
     .su-panel {
@@ -1426,6 +1445,7 @@ body.light-theme {
     .su-card-metrics { flex-direction: row; align-self: flex-start; }
     .su-card-hierarchy { font-size: 9.5px; }
 }
+
 /* ================================================================
    MOBILE PERFORMANCE OPTIMIZATIONS
    ================================================================ */

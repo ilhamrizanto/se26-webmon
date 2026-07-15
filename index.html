@@ -13,7 +13,7 @@
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="img/se.png">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/style.css?v=91">
+    <link rel="stylesheet" href="css/style.css?v=76">
     <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -279,7 +279,31 @@
                             </div>
                             <div class="kpi-card-body">
                                 <h3 id="kpi-approved">0</h3>
-                                <p class="kpi-sub-desc">Telah diverifikasi</p>
+                                <p class="kpi-sub-desc">Disetujui Pengawas</p>
+                            </div>
+                        </div>
+                        
+                        <!-- REJECTED BY ADMIN KABUPATEN Card -->
+                        <div class="kpi-card status-card status-rejected-kab glass-panel-inner">
+                            <div class="kpi-card-header">
+                                <span class="label">REJ. KABUPATEN</span>
+                                <span class="indicator-dot" style="background: #f43f5e; box-shadow: 0 0 8px rgba(244,63,94,0.6);"></span>
+                            </div>
+                            <div class="kpi-card-body">
+                                <h3 id="kpi-rejected-kab">0</h3>
+                                <p class="kpi-sub-desc">Ditolak Admin</p>
+                            </div>
+                        </div>
+                        
+                        <!-- EDITED BY ADMIN KABUPATEN Card -->
+                        <div class="kpi-card status-card status-edited-kab glass-panel-inner">
+                            <div class="kpi-card-header">
+                                <span class="label">EDT. KABUPATEN</span>
+                                <span class="indicator-dot" style="background: #8b5cf6; box-shadow: 0 0 8px rgba(139,92,246,0.6);"></span>
+                            </div>
+                            <div class="kpi-card-body">
+                                <h3 id="kpi-edited-kab">0</h3>
+                                <p class="kpi-sub-desc">Diedit Admin</p>
                             </div>
                         </div>
 
@@ -446,12 +470,14 @@
                                         <th>PML (Pengawas)</th>
                                         <th>PCL (Petugas)</th>
                                         <th>Target Dokumen</th>
-                                        <th>Open</th>
-                                        <th>Draft</th>
-                                        <th>Submitted</th>
-                                        <th>Rejected</th>
-                                        <th>Revoked</th>
-                                        <th>Approved</th>
+                                        <th title="Open">OP</th>
+                                        <th title="Draft">DR</th>
+                                        <th title="Submitted">SUB</th>
+                                        <th title="Rejected">REJ PML</th>
+                                        <th title="Revoked">REV</th>
+                                        <th title="Approved">APP</th>
+                                        <th title="Rejected Kab">REJ ADM</th>
+                                        <th title="Edited Kab">EDT ADM</th>
                                         <th>Progres Submitted</th>
                                         <th>Progres Pendataan</th>
                                         <th>Anomali Usaha</th>
@@ -488,12 +514,14 @@
                                         <th>PML</th>
                                         <th>PJ Kecamatan</th>
                                         <th>Target</th>
-                                        <th>Open</th>
-                                        <th>Draft</th>
-                                        <th>Submitted</th>
-                                        <th>Rejected</th>
-                                        <th>Revoked</th>
-                                        <th>Approved</th>
+                                        <th title="Open">OP</th>
+                                        <th title="Draft">DR</th>
+                                        <th title="Submitted">SUB</th>
+                                        <th title="Rejected">REJ PML</th>
+                                        <th title="Revoked">REV</th>
+                                        <th title="Approved">APP</th>
+                                        <th title="Rejected Kab">REJ ADM</th>
+                                        <th title="Edited Kab">EDT ADM</th>
                                         <th>Progress %</th>
                                     </tr>
                                 </thead>
@@ -844,7 +872,21 @@
         </div>
     </div>
 
+    <!-- SLS Catatan Modal -->
+    <div id="su-catatan-modal" class="modal-container" style="display:none;" role="dialog" aria-modal="true">
+        <div class="modal-content glass-panel" style="max-width:480px; width:90%;">
+            <div class="modal-header">
+                <div>
+                    <h2 id="su-catatan-modal-title" style="font-size:15px;">Catatan SLS</h2>
+                    <span id="su-catatan-modal-sub" style="font-size:11px; color:var(--text-muted);"></span>
+                </div>
+                <button id="su-catatan-modal-close" class="modal-close"><i class="ri-close-line"></i></button>
+            </div>
+            <div class="modal-body" id="su-catatan-modal-body" style="padding:20px;"></div>
+        </div>
+    </div>
+
     <!-- Custom JS script -->
-    <script src="js/app.js?v=69"></script>
+    <script src="js/app.js?v=79"></script>
 </body>
 </html>

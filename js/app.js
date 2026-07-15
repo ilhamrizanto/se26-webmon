@@ -7,6 +7,9 @@ const SHEET_ANOMALI_USAHA_URL = `https://docs.google.com/spreadsheets/d/${SPREAD
 const SHEET_ANOMALI_KELUARGA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Master%20Keluarga`;
 const SHEET_STATUS_USAHA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Status%20Usaha`;
 
+const SPREADSHEET_ID_CATATAN = "1hfzqBgXF9yAYaB7vP-g-cUSNVfXJmrqXk0Ue9FUveo8";
+const SHEET_CATATAN_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID_CATATAN}/gviz/tq?tqx=out:csv&sheet=Mirror%20Status%20Usaha`;
+
 // Global Data State
 let rawDataDB = [];
 let rawNamaData = [];
@@ -15,6 +18,8 @@ let rawKorwilData = [];
 let rawAnomaliUsahaRows = [];
 let rawAnomaliKeluargaRows = [];
 let rawStatusUsahaRows = [];
+let rawCatatanRows = [];
+let catatanMap = {}; // keyed by slsId (16-digit kode)
 
 let slsAssignments = []; // Unified data array
 let sortPjDesc = true;
@@ -150,7 +155,7 @@ function renderOverviewTables() {
             const tersubmit = total - data.open;
             const pctPendataan = tersubmit / total * 100;
             const pctSubmit = (total - data.open - data.draft) / total * 100;
-            const pctApprove = (data.rejected + data.revoked + data.approved) / total * 100;
+            const pctApprove = (total - data.open - data.draft - data.submitted) / total * 100;
             pjList.push({ 
                 name: k, total, tersubmit, 
                 pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, 
@@ -173,7 +178,7 @@ function renderOverviewTables() {
             const tersubmit = total - data.open;
             const pctPendataan = tersubmit / total * 100;
             const pctSubmit = (total - data.open - data.draft) / total * 100;
-            const pctApprove = (data.rejected + data.revoked + data.approved) / total * 100;
+            const pctApprove = (total - data.open - data.draft - data.submitted) / total * 100;
             pmlList.push({ 
                 name: p, total, tersubmit, 
                 pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, 
@@ -414,6 +419,30 @@ function parseStatusUsaha(rawRows) {
     return lookup;
 }
 
+function parseCatatan(rawRows) {
+    const map = {};
+    if (!rawRows || rawRows.length < 2) return map;
+    
+    // Assume Row 0 is header: Kode, Tutup, Tidak Ditemukan, Kecamatan, Desa, Nama SLS, Catatan Tutup, Catatan Tidak Ditemukan
+    for (let i = 1; i < rawRows.length; i++) {
+        const row = rawRows[i];
+        if (!row || row.length === 0) continue;
+        const kode = String(row[0] || '').trim();
+        if (kode.length !== 16 || !/^\d+$/.test(kode)) continue;
+        
+        const noteTutup = String(row[6] || '').trim();
+        const noteTDK = String(row[7] || '').trim();
+        
+        if (noteTutup || noteTDK) {
+            map[kode] = { 
+                catatanTutup: noteTutup, 
+                catatanTDK: noteTDK 
+            };
+        }
+    }
+    return map;
+}
+
 function cleanName(name) {
     if (!name) return "";
     return String(name).toLowerCase()
@@ -453,8 +482,9 @@ function initApp() {
         fetchCSV(SHEET_KORWIL_URL),
         fetchCSVRaw(SHEET_ANOMALI_USAHA_URL),
         fetchCSVRaw(SHEET_ANOMALI_KELUARGA_URL),
-        fetchCSVRaw(SHEET_STATUS_USAHA_URL)
-    ]).then(([dbData, namaData, slsDataRaw, korwilData, rawAnomaliUsaha, rawAnomaliKeluarga, rawStatusUsaha]) => {
+        fetchCSVRaw(SHEET_STATUS_USAHA_URL),
+        fetchCSVRaw(SHEET_CATATAN_URL).catch(() => []) // graceful
+    ]).then(([dbData, namaData, slsDataRaw, korwilData, rawAnomaliUsaha, rawAnomaliKeluarga, rawStatusUsaha, rawCatatan]) => {
         rawDataDB = dbData;
         rawNamaData = namaData;
         rawSlsData = slsDataRaw;
@@ -462,13 +492,15 @@ function initApp() {
         rawAnomaliUsahaRows = rawAnomaliUsaha;
         rawAnomaliKeluargaRows = rawAnomaliKeluarga;
         rawStatusUsahaRows = rawStatusUsaha;
+        rawCatatanRows = rawCatatan || [];
+        catatanMap = parseCatatan(rawCatatanRows);
         
         console.log("Debug Anomaly Sheets Loaded:");
         console.log("Raw Usaha rows count:", rawAnomaliUsahaRows ? rawAnomaliUsahaRows.length : 0);
         console.log("Raw Keluarga rows count:", rawAnomaliKeluargaRows ? rawAnomaliKeluargaRows.length : 0);
         
         // Cell-based timestamps extraction
-        const syncPendataan = extractCellTime(dbData.rawRows, 1, 10) || '-';
+        const syncPendataan = extractCellTime(dbData.rawRows, 1, 12) || '-';
         const syncAnomaliUsaha = extractCellTime(rawAnomaliUsahaRows, 1, 21, "dicetak:") || '-';
         const syncAnomaliKeluarga = extractCellTime(rawAnomaliKeluargaRows, 1, 21, "dicetak:") || '-';
         const syncStatusUsaha = extractCellTime(rawStatusUsahaRows, 1, 0, "diperbarui:") || '-';
@@ -561,11 +593,13 @@ function processAllData() {
 
         const open = parseInt(row['OPEN']) || 0;
         const draft = parseInt(row['DRAFT']) || 0;
-        const submitted = parseInt(row['SUBMITTED BY PENCACAH']) || 0;
-        const approved = parseInt(row['APPROVED BY PENGAWAS']) || 0;
-        const rejected = parseInt(row['REJECTED BY PENGAWAS']) || 0;
-        const revoked = parseInt(row['REVOKED BY PENGAWAS']) || 0;
-        const total = open + draft + submitted + approved + rejected + revoked;
+        const submitted = parseInt(row['SUBMITTED BY Pencacah']) || parseInt(row['SUBMITTED BY PENCACAH']) || 0;
+        const approved = parseInt(row['APPROVED BY Pengawas']) || parseInt(row['APPROVED BY PENGAWAS']) || 0;
+        const rejected = parseInt(row['REJECTED BY Pengawas']) || parseInt(row['REJECTED BY PENGAWAS']) || 0;
+        const revoked = parseInt(row['REVOKED BY Pengawas']) || parseInt(row['REVOKED BY PENGAWAS']) || 0;
+        const rejectedK = parseInt(row['REJECTED BY Admin Kabupaten']) || parseInt(row['REJECTED BY ADMIN KABUPATEN']) || 0;
+        const editedK = parseInt(row['EDITED BY Admin Kabupaten']) || parseInt(row['EDITED BY ADMIN KABUPATEN']) || 0;
+        const total = open + draft + submitted + approved + rejected + revoked + rejectedK + editedK;
 
         // Mappings
         const namaLengkap = emailToNama[email] || email;
@@ -613,7 +647,7 @@ function processAllData() {
             namaLengkap: namaLengkap,
             koseka: koseka,
             pml: pml,
-            open, draft, submitted, approved, rejected, revoked,
+            open, draft, submitted, approved, rejected, revoked, rejectedK, editedK,
             total,
             usahaTutup: statusUsaha.tutup,
             usahaTidakDitemukan: statusUsaha.tidakDitemukan
@@ -636,7 +670,7 @@ function processAllData() {
                 koseka: item.koseka,
                 pml: item.pml,
                 totalTarget: 0,
-                open: 0, draft: 0, submitted: 0, approved: 0, rejected: 0, revoked: 0,
+                open: 0, draft: 0, submitted: 0, approved: 0, rejected: 0, revoked: 0, rejectedK: 0, editedK: 0,
                 slsList: [],
                 usahaTutup: 0,
                 usahaTidakDitemukan: 0
@@ -650,6 +684,8 @@ function processAllData() {
         p.approved += item.approved;
         p.rejected += item.rejected;
         p.revoked += item.revoked;
+        p.rejectedK += item.rejectedK;
+        p.editedK += item.editedK;
         p.usahaTutup += item.usahaTutup;
         p.usahaTidakDitemukan += item.usahaTidakDitemukan;
         p.slsList.push(item);
@@ -661,7 +697,7 @@ function processAllData() {
                 pml: pmlKey,
                 koseka: item.koseka,
                 totalTarget: 0,
-                open: 0, draft: 0, submitted: 0, approved: 0, rejected: 0, revoked: 0,
+                open: 0, draft: 0, submitted: 0, approved: 0, rejected: 0, revoked: 0, rejectedK: 0, editedK: 0,
                 pcls: new Set(),
                 slsCount: 0,
                 usahaTutup: 0,
@@ -676,6 +712,8 @@ function processAllData() {
         pm.approved += item.approved;
         pm.rejected += item.rejected;
         pm.revoked += item.revoked;
+        pm.rejectedK += item.rejectedK;
+        pm.editedK += item.editedK;
         pm.usahaTutup += item.usahaTutup;
         pm.usahaTidakDitemukan += item.usahaTidakDitemukan;
         pm.pcls.add(item.email);
@@ -687,7 +725,7 @@ function processAllData() {
             kosekaData[kosekaKey] = {
                 koseka: kosekaKey,
                 totalTarget: 0,
-                open: 0, draft: 0, submitted: 0, approved: 0, rejected: 0, revoked: 0,
+                open: 0, draft: 0, submitted: 0, approved: 0, rejected: 0, revoked: 0, rejectedK: 0, editedK: 0,
                 pmls: new Set(),
                 pcls: new Set(),
                 slsCount: 0,
@@ -703,6 +741,8 @@ function processAllData() {
         ks.approved += item.approved;
         ks.rejected += item.rejected;
         ks.revoked += item.revoked;
+        ks.rejectedK += item.rejectedK;
+        ks.editedK += item.editedK;
         ks.usahaTutup += item.usahaTutup;
         ks.usahaTidakDitemukan += item.usahaTidakDitemukan;
         ks.pmls.add(item.pml);
@@ -729,6 +769,8 @@ function processAllData() {
         kc.approved += item.approved;
         kc.rejected += item.rejected;
         kc.revoked += item.revoked;
+        kc.rejectedK += item.rejectedK;
+        kc.editedK += item.editedK;
         kc.usahaTutup += item.usahaTutup;
         kc.usahaTidakDitemukan += item.usahaTidakDitemukan;
         kc.slsCount++;
@@ -866,6 +908,7 @@ function buildStatusUsahaList() {
         if (seen[item.slsId]) return;
         seen[item.slsId] = true;
         if (item.usahaTutup === 0 && item.usahaTidakDitemukan === 0) return; // only bermasalah
+        const catatan = catatanMap[item.slsId] || {};
         list.push({
             slsId: item.slsId,
             nmsls: item.nmsls,
@@ -876,7 +919,9 @@ function buildStatusUsahaList() {
             pclName: item.namaLengkap,
             tutup: item.usahaTutup,
             tidakDitemukan: item.usahaTidakDitemukan,
-            total: item.usahaTutup + item.usahaTidakDitemukan
+            total: item.usahaTutup + item.usahaTidakDitemukan,
+            catatanTutup: catatan.catatanTutup || '',
+            catatanTDK: catatan.catatanTDK || ''
         });
     });
     window.statusUsahaList = list;
@@ -888,7 +933,7 @@ let sortKecamatanDesc = true;
 
 function updateDashboard() {
     let globalTarget = 0;
-    let gOpen = 0, gDraft = 0, gSub = 0, gApp = 0, gRej = 0, gRev = 0;
+    let gOpen = 0, gDraft = 0, gSub = 0, gApp = 0, gRej = 0, gRev = 0, gRejK = 0, gEditK = 0;
     let gAnomaliDone = 0, gAnomaliTotal = 0;
 
     for (const email in petugasData) {
@@ -900,6 +945,8 @@ function updateDashboard() {
         gApp += p.approved;
         gRej += p.rejected;
         gRev += p.revoked;
+        gRejK += p.rejectedK;
+        gEditK += p.editedK;
         gAnomaliDone += (p.anomaliDone || 0);
         gAnomaliTotal += (p.anomaliTotal || 0);
     }
@@ -912,6 +959,8 @@ function updateDashboard() {
     animateValue("kpi-rejected", 0, gRej, 1000, ` <span style="font-size: 12px; color: var(--color-rejected); opacity: 0.75;">(${globalTarget > 0 ? ((gRej/globalTarget)*100).toFixed(1) : 0}%)</span>`);
     animateValue("kpi-revoked", 0, gRev, 1000, ` <span style="font-size: 12px; color: var(--color-revoked); opacity: 0.75;">(${globalTarget > 0 ? ((gRev/globalTarget)*100).toFixed(1) : 0}%)</span>`);
     animateValue("kpi-approved", 0, gApp, 1000, ` <span style="font-size: 12px; color: var(--color-approved); opacity: 0.75;">(${globalTarget > 0 ? ((gApp/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+    animateValue("kpi-rejected-kab", 0, gRejK, 1000, ` <span style="font-size: 12px; color: #f43f5e; opacity: 0.75;">(${globalTarget > 0 ? ((gRejK/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+    animateValue("kpi-edited-kab", 0, gEditK, 1000, ` <span style="font-size: 12px; color: #8b5cf6; opacity: 0.75;">(${globalTarget > 0 ? ((gEditK/globalTarget)*100).toFixed(1) : 0}%)</span>`);
 
     // Update Anomali Kabupaten Banner
     const elAnomali = document.getElementById("kpi-anomaly-kabupaten");
@@ -1002,7 +1051,9 @@ function updateDashboard() {
                     { label: 'Submitted', data: [gSub],   backgroundColor: '#0ea5e9', barPercentage: 0.9 },
                     { label: 'Rejected',  data: [gRej],   backgroundColor: '#ef4444', barPercentage: 0.9 },
                     { label: 'Revoked',   data: [gRev],   backgroundColor: '#f59e0b', barPercentage: 0.9 },
-                    { label: 'Approved',  data: [gApp],   backgroundColor: '#10b981', barPercentage: 0.9 }
+                    { label: 'Approved',  data: [gApp],   backgroundColor: '#10b981', barPercentage: 0.9 },
+                    { label: 'Rej. Kab',  data: [gRejK],  backgroundColor: '#f43f5e', barPercentage: 0.9 },
+                    { label: 'Edt. Kab',  data: [gEditK], backgroundColor: '#8b5cf6', barPercentage: 0.9 }
                 ]
             },
             options: {
@@ -1073,7 +1124,7 @@ function renderProgresPetugasList() {
         const tersubmit = total - p.open;
         const pctPendataan = tersubmit / total * 100;
         const pctSubmit = (total - p.open - p.draft) / total * 100;
-        const pctApprove = (p.rejected + p.revoked + p.approved) / total * 100;
+        const pctApprove = (total - p.open - p.draft - p.submitted) / total * 100;
         return { 
             name: p.namaLengkap, total, tersubmit, 
             pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, 
@@ -1096,7 +1147,7 @@ function renderProgresKecamatanList() {
         const tersubmit = total - k.open;
         const pctPendataan = tersubmit / total * 100;
         const pctSubmit = (total - k.open - k.draft) / total * 100;
-        const pctApprove = (k.rejected + k.revoked + k.approved) / total * 100;
+        const pctApprove = (total - k.open - k.draft - k.submitted) / total * 100;
         return { 
             name: k.kecamatan, total, tersubmit, 
             pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, 
@@ -1188,6 +1239,8 @@ function renderKorwilTable() {
             <td><span class="badge-dot rejected"></span> ${item.rejected || 0}</td>
             <td><span class="badge-dot revoked"></span> ${item.revoked || 0}</td>
             <td><span class="badge-dot approved"></span> ${item.approved}</td>
+            <td><span class="badge-dot" style="background:#f43f5e; box-shadow: 0 0 6px #f43f5e;"></span> ${item.rejectedK || 0}</td>
+            <td><span class="badge-dot" style="background:#8b5cf6; box-shadow: 0 0 6px #8b5cf6;"></span> ${item.editedK || 0}</td>
             <td>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <div class="progress-bar-thin" style="width:60px; margin:0;"><div class="progress-fill-thin" style="background:${colorSubmitted}; width:${pctSubmitted}%"></div></div>
@@ -1232,6 +1285,8 @@ function renderPetugasTable() {
             <td><span class="badge-dot rejected"></span> ${p.rejected}</td>
             <td><span class="badge-dot revoked"></span> ${p.revoked}</td>
             <td><span class="badge-dot approved"></span> ${p.approved}</td>
+            <td><span class="badge-dot" style="background:#f43f5e; box-shadow: 0 0 6px #f43f5e;"></span> ${p.rejectedK}</td>
+            <td><span class="badge-dot" style="background:#8b5cf6; box-shadow: 0 0 6px #8b5cf6;"></span> ${p.editedK}</td>
             <td>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <div class="progress-bar-thin" style="width:60px; margin:0;"><div class="progress-fill-thin" style="background:${getProgressBarColor(pct)}; width:${pct}%"></div></div>
@@ -1728,7 +1783,7 @@ function buildAnomalyCardHTML(anom) {
     const statusClass = anom.isDone ? 'anom-card-done' : 'anom-card-pending';
     const statusBadge = anom.isDone
         ? `<span class="anom-status-badge anom-badge-done"><i class="ri-checkbox-circle-line"></i> Selesai</span>`
-        : `<span class="anom-status-badge anom-badge-pending"><i class="ri-time-line"></i> Belum Selesai</span>`;
+        : `<span class="anom-status-badge anom-badge-pending"><i class="ri-time-line"></i> BELUM SELESAI</span>`;
     const fasihBtn = anom.linkFasih
         ? `<a href="${anom.linkFasih}" target="_blank" class="anom-fasih-btn" title="Buka di FASIH"><i class="ri-external-link-line"></i></a>`
         : '';
@@ -1958,12 +2013,27 @@ function renderSuStats(all, filtered) {
 
 function buildSuCardHTML(item) {
     const tdkLevel = item.tidakDitemukan > 5 ? 'danger' : item.tidakDitemukan > 0 ? 'warning' : 'neutral';
+    const hasCatatan = item.catatanTutup || item.catatanTDK;
+    const catatanBadge = hasCatatan
+        ? `<span class="su-catatan-badge" title="Ada catatan dari PJ"><i class="ri-sticky-note-line"></i> Catatan</span>`
+        : '';
+    // Encode data safely for embedding in HTML attributes
+    const encCatatanTutup = encodeURIComponent(item.catatanTutup || '');
+    const encCatatanTDK   = encodeURIComponent(item.catatanTDK || '');
     return `
-    <div class="su-card su-card-${tdkLevel}">
+    <div class="su-card su-card-${tdkLevel} su-card-clickable"
+         data-sls-id="${item.slsId}"
+         data-nmsls="${(item.nmsls || '').replace(/"/g, '&quot;')}"
+         data-loc="${([item.desa, item.kecamatan].filter(v => v && v !== 'Belum Terpetakan').join(' · ')).replace(/"/g, '&quot;')}"
+         data-catatan-tutup="${encCatatanTutup}"
+         data-catatan-tdk="${encCatatanTDK}"
+         data-tutup="${item.tutup}"
+         data-tdk="${item.tidakDitemukan}">
         <div class="su-card-top">
             <div class="su-card-left">
                 <div class="su-card-sls">${item.nmsls || item.slsId}</div>
                 <div class="su-card-loc"><i class="ri-map-2-line"></i> ${[item.desa, item.kecamatan].filter(v => v && v !== 'Belum Terpetakan').join(' · ')}</div>
+                ${catatanBadge}
             </div>
             <div class="su-card-metrics">
                 <div class="su-metric-chip su-chip-tutup">
@@ -1998,7 +2068,101 @@ function renderSuCards(list) {
         return;
     }
     el.innerHTML = list.map(item => buildSuCardHTML(item)).join('');
+
+    // Click delegation: open catatan modal on any card click
+    el.querySelectorAll('.su-card-clickable').forEach(card => {
+        card.addEventListener('click', () => {
+            openSuCatatanModal({
+                slsId:  card.dataset.slsId,
+                nmsls:  card.dataset.nmsls,
+                loc:    card.dataset.loc,
+                catatanTutup: decodeURIComponent(card.dataset.catatanTutup || ''),
+                catatanTDK:   decodeURIComponent(card.dataset.catatanTdk || ''),
+                tutup:  parseInt(card.dataset.tutup) || 0,
+                tdk:    parseInt(card.dataset.tdk)   || 0
+            });
+        });
+    });
 }
+
+// ─── SLS Catatan Modal ────────────────────────────────────────────────────
+function openSuCatatanModal(data) {
+    const modal  = document.getElementById('su-catatan-modal');
+    const title  = document.getElementById('su-catatan-modal-title');
+    const sub    = document.getElementById('su-catatan-modal-sub');
+    const body   = document.getElementById('su-catatan-modal-body');
+    if (!modal) return;
+
+    title.textContent = data.nmsls || data.slsId;
+    sub.textContent   = data.loc || '';
+
+    const formatNote = (text) => {
+        if (!text) return '';
+        // Split on numbered list items like "1. Foo\n2. Bar" or newlines
+        const lines = text.split(/\n|(?=\d+\.\s)/).map(l => l.trim()).filter(Boolean);
+        if (lines.length <= 1) {
+            return `<p style="font-size:13px; color:var(--text-body); line-height:1.6;">${text}</p>`;
+        }
+        return `<ul style="margin:0; padding-left:18px; display:flex; flex-direction:column; gap:6px;">
+            ${lines.map(l => `<li style="font-size:13px; color:var(--text-body); line-height:1.5;">${l}</li>`).join('')}
+        </ul>`;
+    };
+
+    let html = '';
+
+    // Section 1: Usaha Tutup
+    html += `
+    <div style="margin-bottom:16px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+            <span style="background:rgba(239,68,68,0.1); color:#dc2626; border:1px solid rgba(239,68,68,0.25);
+                         border-radius:20px; padding:2px 10px; font-size:11px; font-weight:700;">
+                <i class="ri-store-2-line"></i> Tutup (${data.tutup})
+            </span>
+        </div>
+        ${data.catatanTutup
+            ? formatNote(data.catatanTutup)
+            : `<p style="font-size:12px; color:var(--text-dim); font-style:italic;">Belum ada catatan dari PJ untuk usaha tutup.</p>`
+        }
+    </div>`;
+
+    html += `<hr style="border:none; border-top:1px dashed var(--border-glass-md); margin:16px 0;">`;
+
+    // Section 2: Tidak Ditemukan
+    html += `
+    <div>
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+            <span style="background:rgba(249,115,22,0.1); color:#ea580c; border:1px solid rgba(249,115,22,0.25);
+                         border-radius:20px; padding:2px 10px; font-size:11px; font-weight:700;">
+                <i class="ri-map-pin-user-line"></i> Tidak Ditemukan (${data.tdk})
+            </span>
+        </div>
+        ${data.catatanTDK
+            ? formatNote(data.catatanTDK)
+            : `<p style="font-size:12px; color:var(--text-dim); font-style:italic;">Belum ada catatan dari PJ untuk usaha tidak ditemukan.</p>`
+        }
+    </div>`;
+
+    body.innerHTML = html;
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeSuCatatanModal() {
+    const modal = document.getElementById('su-catatan-modal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+// Wire up close button and backdrop click for catatan modal
+document.addEventListener('DOMContentLoaded', () => {
+    const closeBtn = document.getElementById('su-catatan-modal-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeSuCatatanModal);
+
+    const modal = document.getElementById('su-catatan-modal');
+    if (modal) modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeSuCatatanModal();
+    });
+});
 
 function setupStatusUsahaFilters() {
     const selPJ   = document.getElementById('su-filter-pj');
@@ -2441,7 +2605,7 @@ function renderPclDetail(email) {
             </div>
 
             <!-- Status Distribution Breakdown -->
-            <div class="detail-stats-grid" style="grid-template-columns: repeat(3, 1fr); gap:6px;">
+            <div class="detail-stats-grid" style="grid-template-columns: repeat(4, 1fr); gap:6px;">
                 <div class="detail-stat-card" style="border-left: 2.5px solid var(--color-open); background: rgba(156, 163, 175, 0.06); padding: 8px 6px;">
                     <span class="label" style="font-size:8px; color: var(--text-dim);">Open</span>
                     <strong class="value" style="font-size:12px; color:var(--color-open);">${data.open} <span style="font-size:10px; opacity:0.8; font-weight:normal; color: var(--text-muted);">(${total > 0 ? (data.open/total*100).toFixed(1) : "0.0"}%)</span></strong>
@@ -2455,7 +2619,7 @@ function renderPclDetail(email) {
                     <strong class="value" style="font-size:12px; color:var(--color-submitted);">${data.submitted} <span style="font-size:10px; opacity:0.8; font-weight:normal; color: var(--text-muted);">(${total > 0 ? (data.submitted/total*100).toFixed(1) : "0.0"}%)</span></strong>
                 </div>
                 <div class="detail-stat-card" style="border-left: 2.5px solid var(--color-rejected); background: rgba(239, 68, 68, 0.06); padding: 8px 6px;">
-                    <span class="label" style="font-size:8px; color: var(--text-dim);">Rejected</span>
+                    <span class="label" style="font-size:8px; color: var(--text-dim);">Rej. PML</span>
                     <strong class="value" style="font-size:12px; color:var(--color-rejected);">${data.rejected} <span style="font-size:10px; opacity:0.8; font-weight:normal; color: var(--text-muted);">(${total > 0 ? (data.rejected/total*100).toFixed(1) : "0.0"}%)</span></strong>
                 </div>
                 <div class="detail-stat-card" style="border-left: 2.5px solid var(--color-revoked); background: rgba(168, 85, 247, 0.06); padding: 8px 6px;">
@@ -2465,6 +2629,14 @@ function renderPclDetail(email) {
                 <div class="detail-stat-card" style="border-left: 2.5px solid var(--color-approved); background: rgba(16, 185, 129, 0.06); padding: 8px 6px;">
                     <span class="label" style="font-size:8px; color: var(--text-dim);">Approved</span>
                     <strong class="value" style="font-size:12px; color:var(--color-approved);">${data.approved} <span style="font-size:10px; opacity:0.8; font-weight:normal; color: var(--text-muted);">(${total > 0 ? (data.approved/total*100).toFixed(1) : "0.0"}%)</span></strong>
+                </div>
+                <div class="detail-stat-card" style="border-left: 2.5px solid #f43f5e; background: rgba(244, 63, 94, 0.06); padding: 8px 6px;">
+                    <span class="label" style="font-size:8px; color: var(--text-dim);">Rej. Kab</span>
+                    <strong class="value" style="font-size:12px; color:#f43f5e;">${data.rejectedK || 0} <span style="font-size:10px; opacity:0.8; font-weight:normal; color: var(--text-muted);">(${total > 0 ? ((data.rejectedK || 0)/total*100).toFixed(1) : "0.0"}%)</span></strong>
+                </div>
+                <div class="detail-stat-card" style="border-left: 2.5px solid #8b5cf6; background: rgba(139, 92, 246, 0.06); padding: 8px 6px;">
+                    <span class="label" style="font-size:8px; color: var(--text-dim);">Edt. Kab</span>
+                    <strong class="value" style="font-size:12px; color:#8b5cf6;">${data.editedK || 0} <span style="font-size:10px; opacity:0.8; font-weight:normal; color: var(--text-muted);">(${total > 0 ? ((data.editedK || 0)/total*100).toFixed(1) : "0.0"}%)</span></strong>
                 </div>
             </div>
 
@@ -2512,12 +2684,14 @@ function renderPclDetail(email) {
             </div>
             <div class="sls-card-stats" style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: space-between; align-items: center; margin-top: 8px;">
                 <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(156, 163, 175, 0.12); color: var(--color-open); font-size: 8.5px; font-weight:600;">Op: ${sls.open}</span>
-                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(59, 130, 246, 0.12); color: var(--color-draft); font-size: 8.5px; font-weight:600;">Dr: ${sls.draft}</span>
-                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(245, 158, 11, 0.12); color: var(--color-submitted); font-size: 8.5px; font-weight:600;">Su: ${sls.submitted}</span>
-                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(239, 68, 68, 0.12); color: var(--color-rejected); font-size: 8.5px; font-weight:600;">Rej: ${sls.rejected}</span>
-                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(168, 85, 247, 0.12); color: var(--color-revoked); font-size: 8.5px; font-weight:600;">Rev: ${sls.revoked}</span>
-                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(16, 185, 129, 0.12); color: var(--color-approved); font-size: 8.5px; font-weight:600;">Ap: ${sls.approved}</span>
+                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(156, 163, 175, 0.12); color: var(--color-open); font-size: 8.5px; font-weight:600;">OP: ${sls.open}</span>
+                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(59, 130, 246, 0.12); color: var(--color-draft); font-size: 8.5px; font-weight:600;">DR: ${sls.draft}</span>
+                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(245, 158, 11, 0.12); color: var(--color-submitted); font-size: 8.5px; font-weight:600;">SUB: ${sls.submitted}</span>
+                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(239, 68, 68, 0.12); color: var(--color-rejected); font-size: 8.5px; font-weight:600;">REJ PML: ${sls.rejected}</span>
+                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(168, 85, 247, 0.12); color: var(--color-revoked); font-size: 8.5px; font-weight:600;">REV: ${sls.revoked}</span>
+                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(16, 185, 129, 0.12); color: var(--color-approved); font-size: 8.5px; font-weight:600;">APP: ${sls.approved}</span>
+                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(244, 63, 94, 0.12); color: #f43f5e; font-size: 8.5px; font-weight:600;">REJ ADM: ${sls.rejectedK || 0}</span>
+                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(139, 92, 246, 0.12); color: #8b5cf6; font-size: 8.5px; font-weight:600;">EDT ADM: ${sls.editedK || 0}</span>
                 </div>
                 <div style="display: flex; gap: 4px; align-items: center;">
                     <span style="padding: 2px 5px; border-radius: 4px; background: ${sls.usahaTutup > 0 ? 'rgba(217, 119, 6, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.usahaTutup > 0 ? '#d97706' : 'var(--text-dim)'}; border: 1px solid ${sls.usahaTutup > 0 ? 'rgba(217, 119, 6, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Usaha Tutup"><i class="ri-store-2-line"></i> ${sls.usahaTutup || 0}</span>
@@ -2598,11 +2772,12 @@ function exportOverviewToExcel() {
     const blank = (n = 1) => { for (let i = 0; i < n; i++) ws_data.push([]); };
 
     // ── Compute totals ──────────────────────────────────
-    let globalTarget = 0, gOpen = 0, gDraft = 0, gSub = 0, gApp = 0, gRej = 0, gRev = 0;
+    let globalTarget = 0, gOpen = 0, gDraft = 0, gSub = 0, gApp = 0, gRej = 0, gRev = 0, gRejK = 0, gEditK = 0;
     for (const email in petugasData) {
         const p = petugasData[email];
         globalTarget += p.totalTarget; gOpen += p.open; gDraft += p.draft;
         gSub += p.submitted; gApp += p.approved; gRej += p.rejected; gRev += p.revoked;
+        gRejK += p.rejectedK; gEditK += p.editedK;
     }
     const tersubmit  = globalTarget - gOpen - gDraft;
     const pctDone    = globalTarget > 0 ? (tersubmit  / globalTarget * 100).toFixed(2) : 0;
@@ -2612,6 +2787,8 @@ function exportOverviewToExcel() {
     const pctApp     = globalTarget > 0 ? (gApp   / globalTarget * 100).toFixed(2) : 0;
     const pctRej     = globalTarget > 0 ? (gRej   / globalTarget * 100).toFixed(2) : 0;
     const pctRev     = globalTarget > 0 ? (gRev   / globalTarget * 100).toFixed(2) : 0;
+    const pctRejK    = globalTarget > 0 ? (gRejK  / globalTarget * 100).toFixed(2) : 0;
+    const pctEditK   = globalTarget > 0 ? (gEditK / globalTarget * 100).toFixed(2) : 0;
     const lastSync   = document.getElementById('last-sync')?.innerText || '-';
     const exportTime = new Date().toLocaleString('id-ID');
 
@@ -2650,13 +2827,15 @@ function exportOverviewToExcel() {
     ws_data.push(['REJECTED',  gRej,   pctRej]);
     ws_data.push(['REVOKED',   gRev,   pctRev]);
     ws_data.push(['APPROVED',  gApp,   pctApp]);
+    ws_data.push(['REJ. KAB',  gRejK,  pctRejK]);
+    ws_data.push(['EDT. KAB',  gEditK, pctEditK]);
     blank(2);
 
     // ════════════════════════════════════════════════════
     // SECTION 3 — PROGRES PETUGAS (PCL)
     // ════════════════════════════════════════════════════
     ws_data.push(['B. PROGRES PETUGAS (PCL)']);
-    ws_data.push(['Nama Petugas', 'PJ Kecamatan', 'Total Target', 'Tersubmit', '% Tersubmit', 'Submitted', 'Approved', 'Rejected', 'Revoked', 'Draft', 'Open', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan']);
+    ws_data.push(['Nama Petugas', 'PJ Kecamatan', 'Total Target', 'Tersubmit', '% Tersubmit', 'Submitted', 'Approved', 'Rejected', 'Revoked', 'Rej Kab', 'Edt Kab', 'Draft', 'Open', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan']);
     const pList = Object.values(petugasData).map(p => {
         const ts = p.totalTarget - p.open - p.draft;
         const pct = p.totalTarget > 0 ? (ts / p.totalTarget * 100).toFixed(2) : 0;
@@ -2664,7 +2843,7 @@ function exportOverviewToExcel() {
     }).sort((a, b) => b.ts - a.ts);
     pList.forEach(p => {
         const anomStr = `${p.anomaliDone || 0}/${p.anomaliTotal || 0}`;
-        ws_data.push([p.namaLengkap, p.koseka, p.totalTarget, p.ts, parseFloat(p.pct), p.submitted, p.approved, p.rejected, p.revoked, p.draft, p.open, anomStr, p.usahaTutup || 0, p.usahaTidakDitemukan || 0]);
+        ws_data.push([p.namaLengkap, p.koseka, p.totalTarget, p.ts, parseFloat(p.pct), p.submitted, p.approved, p.rejected, p.revoked, p.rejectedK, p.editedK, p.draft, p.open, anomStr, p.usahaTutup || 0, p.usahaTidakDitemukan || 0]);
     });
     blank(2);
 
@@ -2672,7 +2851,7 @@ function exportOverviewToExcel() {
     // SECTION 4 — PROGRES KECAMATAN
     // ════════════════════════════════════════════════════
     ws_data.push(['C. PROGRES KECAMATAN']);
-    ws_data.push(['Kecamatan', 'Jml SLS', 'Total Target', 'Tersubmit', '% Tersubmit', 'Submitted', 'Approved', 'Rejected', 'Revoked', 'Draft', 'Open', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan']);
+    ws_data.push(['Kecamatan', 'Jml SLS', 'Total Target', 'Tersubmit', '% Tersubmit', 'Submitted', 'Approved', 'Rejected', 'Revoked', 'Rej Kab', 'Edt Kab', 'Draft', 'Open', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan']);
     const kList = Object.values(kecamatanData).map(k => {
         const ts = k.totalTarget - k.open - k.draft;
         const pct = k.totalTarget > 0 ? (ts / k.totalTarget * 100).toFixed(2) : 0;
@@ -2680,7 +2859,7 @@ function exportOverviewToExcel() {
     }).sort((a, b) => b.ts - a.ts);
     kList.forEach(k => {
         const anomStr = `${k.anomaliDone || 0}/${k.anomaliTotal || 0}`;
-        ws_data.push([k.kecamatan, k.slsCount, k.totalTarget, k.ts, parseFloat(k.pct), k.submitted, k.approved, k.rejected, k.revoked, k.draft, k.open, anomStr, k.usahaTutup || 0, k.usahaTidakDitemukan || 0]);
+        ws_data.push([k.kecamatan, k.slsCount, k.totalTarget, k.ts, parseFloat(k.pct), k.submitted, k.approved, k.rejected, k.revoked, k.rejectedK, k.editedK, k.draft, k.open, anomStr, k.usahaTutup || 0, k.usahaTidakDitemukan || 0]);
     });
     blank(2);
 
