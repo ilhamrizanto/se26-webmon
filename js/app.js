@@ -6,6 +6,7 @@ const SHEET_KORWIL_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_I
 const SHEET_ANOMALI_USAHA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Master%20Usaha`;
 const SHEET_ANOMALI_KELUARGA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Master%20Keluarga`;
 const SHEET_STATUS_USAHA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Status%20Usaha`;
+const SHEET_STATUS_KELUARGA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Status%20Keluarga`;
 
 const SPREADSHEET_ID_CATATAN = "1hfzqBgXF9yAYaB7vP-g-cUSNVfXJmrqXk0Ue9FUveo8";
 const SHEET_CATATAN_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID_CATATAN}/gviz/tq?tqx=out:csv&sheet=Mirror%20Status%20Usaha`;
@@ -18,6 +19,7 @@ let rawKorwilData = [];
 let rawAnomaliUsahaRows = [];
 let rawAnomaliKeluargaRows = [];
 let rawStatusUsahaRows = [];
+let rawStatusKeluargaRows = [];
 let rawCatatanRows = [];
 let catatanMap = {}; // keyed by slsId (16-digit kode)
 
@@ -202,6 +204,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setupMobileMenu();
     setupAnomalyFilters();
     setupStatusUsahaFilters();
+    setupStatusKeluargaFilters();
     
     document.getElementById('btn-refresh').addEventListener('click', () => {
         elAppContent.style.display = 'none';
@@ -392,28 +395,61 @@ function extractCellTime(rawRows, rowIndex, colIndex, searchLabel) {
 }
 
 function parseStatusUsaha(rawRows) {
+    // Schema: (1)Kode (2)Sub-SLS (3)Prelist (4)Ditemukan (5)% (6)Tutup (7)% (8)Ganda (9)% (10)Tidak Ditemukan (11)% (12)Baru (13)% (14)Jumlah BKU
     if (!rawRows || rawRows.length < 7) return {};
-    
     const lookup = {};
+    const cleanNumber = (val) => {
+        if (!val && val !== 0) return 0;
+        const cleanStr = String(val).replace(/[^0-9]/g, '');
+        return parseInt(cleanStr, 10) || 0;
+    };
     for (let i = 6; i < rawRows.length; i++) {
         const row = rawRows[i];
         if (!row || row.length === 0) continue;
-        
         const rawCode = String(row[0] || '').trim();
         if (rawCode.length !== 16 || !/^\d+$/.test(rawCode)) continue;
-        
-        const cleanNumber = (val) => {
-            if (!val) return 0;
-            const cleanStr = String(val).replace(/[^0-9]/g, '');
-            return parseInt(cleanStr, 10) || 0;
-        };
-
-        const tutup = cleanNumber(row[5]);
-        const tidakDitemukan = cleanNumber(row[9]);
-        
         lookup[rawCode] = {
-            tutup,
-            tidakDitemukan
+            prelist:        cleanNumber(row[2]),
+            ditemukan:      cleanNumber(row[3]),
+            tutup:          cleanNumber(row[5]),
+            ganda:          cleanNumber(row[7]),
+            tidakDitemukan: cleanNumber(row[9]),
+            baru:           cleanNumber(row[11]),
+            totalHasil:     cleanNumber(row[13])
+        };
+    }
+    return lookup;
+}
+
+
+function parseStatusKeluarga(rawRows) {
+    // Schema: (1)Kode (2)Sub-SLS (3)Prelist (4)Ditemukan (5)%Ditemukan (6)Kel.Baru
+    //         (7)Meninggal (8)%Meninggal (9)TdkEligible (10)%TdkEligible
+    //         (11)TdkDapatDitemui (12)%TdkDapatDitemui (13)TdkDitemukan (14)%TdkDitemukan
+    //         (15)Kel.Khusus (16)TotalHasil (17)%TotalHasil
+    // Headers at row 5 (index 4), data starts row 7 (index 6)
+    if (!rawRows || rawRows.length < 7) return {};
+    const lookup = {};
+    const cleanNumber = (val) => {
+        if (!val && val !== 0) return 0;
+        const cleanStr = String(val).replace(/[^0-9]/g, '');
+        return parseInt(cleanStr, 10) || 0;
+    };
+    for (let i = 6; i < rawRows.length; i++) {
+        const row = rawRows[i];
+        if (!row || row.length === 0) continue;
+        const rawCode = String(row[0] || '').trim();
+        if (rawCode.length !== 16 || !/^\d+$/.test(rawCode)) continue;
+        lookup[rawCode] = {
+            prelist:        cleanNumber(row[2]),
+            ditemukan:      cleanNumber(row[3]),
+            keluargaBaru:   cleanNumber(row[5]),
+            meninggal:      cleanNumber(row[6]),
+            tdkEligible:    cleanNumber(row[8]),
+            tdkDapatDitemui: cleanNumber(row[10]),
+            tdkDitemukan:   cleanNumber(row[12]),
+            keluargaKhusus: cleanNumber(row[14]),
+            totalHasil:     cleanNumber(row[15])
         };
     }
     return lookup;
@@ -483,8 +519,9 @@ function initApp() {
         fetchCSVRaw(SHEET_ANOMALI_USAHA_URL),
         fetchCSVRaw(SHEET_ANOMALI_KELUARGA_URL),
         fetchCSVRaw(SHEET_STATUS_USAHA_URL),
+        fetchCSVRaw(SHEET_STATUS_KELUARGA_URL),
         fetchCSVRaw(SHEET_CATATAN_URL).catch(() => []) // graceful
-    ]).then(([dbData, namaData, slsDataRaw, korwilData, rawAnomaliUsaha, rawAnomaliKeluarga, rawStatusUsaha, rawCatatan]) => {
+    ]).then(([dbData, namaData, slsDataRaw, korwilData, rawAnomaliUsaha, rawAnomaliKeluarga, rawStatusUsaha, rawStatusKeluarga, rawCatatan]) => {
         rawDataDB = dbData;
         rawNamaData = namaData;
         rawSlsData = slsDataRaw;
@@ -492,6 +529,7 @@ function initApp() {
         rawAnomaliUsahaRows = rawAnomaliUsaha;
         rawAnomaliKeluargaRows = rawAnomaliKeluarga;
         rawStatusUsahaRows = rawStatusUsaha;
+        rawStatusKeluargaRows = rawStatusKeluarga;
         rawCatatanRows = rawCatatan || [];
         catatanMap = parseCatatan(rawCatatanRows);
         
@@ -532,6 +570,12 @@ function initApp() {
         if (elStatusUsaha) elStatusUsaha.innerText = syncStatusUsaha;
         window.statusUsahaTime = syncStatusUsaha !== '-' ? syncStatusUsaha : '';
 
+        // Extract sync time for Status Keluarga
+        const syncStatusKeluarga = extractCellTime(rawStatusKeluargaRows, 1, 0, "diperbarui:") || '-';
+        const elStatusKeluarga = document.getElementById('sync-status-keluarga');
+        if (elStatusKeluarga) elStatusKeluarga.innerText = syncStatusKeluarga;
+        window.statusKeluargaTime = syncStatusKeluarga !== '-' ? syncStatusKeluarga : '';
+
         // Keep hidden last-sync element populated for excel export compatibility
         const elLastSync = document.getElementById('last-sync');
         if (elLastSync) elLastSync.innerText = syncPendataan;
@@ -553,7 +597,8 @@ function initApp() {
 }
 
 function processAllData() {
-    const statusUsahaMap = parseStatusUsaha(rawStatusUsahaRows);
+    const statusUsahaMap    = parseStatusUsaha(rawStatusUsahaRows);
+    const statusKeluargaMap = parseStatusKeluarga(rawStatusKeluargaRows);
     // 1. Build maps for lookups
     const emailToNama = {};
     rawNamaData.forEach(row => {
@@ -605,7 +650,9 @@ function processAllData() {
         const revoked = parseInt(row['REVOKED BY Pengawas']) || parseInt(row['REVOKED BY PENGAWAS']) || 0;
         const rejectedK = parseInt(row['REJECTED BY Admin Kabupaten']) || parseInt(row['REJECTED BY ADMIN KABUPATEN']) || 0;
         const editedK = parseInt(row['EDITED BY Admin Kabupaten']) || parseInt(row['EDITED BY ADMIN KABUPATEN']) || 0;
-        const total = open + draft + submitted + approved + rejected + revoked + rejectedK + editedK;
+        const revokedK = parseInt(row['REVOKED BY Admin Kabupaten']) || parseInt(row['REVOKED BY ADMIN KABUPATEN']) || 0;
+        const completedK = parseInt(row['COMPLETED BY Admin Kabupaten']) || parseInt(row['COMPLETED BY ADMIN KABUPATEN']) || 0;
+        const total = open + draft + submitted + approved + rejected + revoked + rejectedK + editedK + revokedK + completedK;
 
         // Mappings
         const namaLengkap = emailToNama[email] || email;
@@ -640,7 +687,8 @@ function processAllData() {
             nmdesa: 'Belum Terpetakan'
         };
 
-        const statusUsaha = statusUsahaMap[slsIdRaw] || { tutup: 0, tidakDitemukan: 0 };
+        const statusUsaha    = statusUsahaMap[slsIdRaw]    || { prelist: 0, ditemukan: 0, tutup: 0, ganda: 0, tidakDitemukan: 0, baru: 0, totalHasil: 0 };
+        const statusKeluarga = statusKeluargaMap[slsIdRaw] || { prelist: 0, ditemukan: 0, keluargaBaru: 0, meninggal: 0, tdkEligible: 0, tdkDapatDitemui: 0, tdkDitemukan: 0, keluargaKhusus: 0, totalHasil: 0 };
 
         slsAssignments.push({
             slsId: slsIdRaw,
@@ -653,11 +701,28 @@ function processAllData() {
             namaLengkap: namaLengkap,
             koseka: koseka,
             pml: pml,
-            open, draft, submitted, approved, rejected, revoked, rejectedK, editedK,
+            open, draft, submitted, approved, rejected, revoked, rejectedK, editedK, revokedK, completedK,
             total,
-            usahaTutup: statusUsaha.tutup,
-            usahaTidakDitemukan: statusUsaha.tidakDitemukan
+            // Status Usaha
+            suPrelist:        statusUsaha.prelist,
+            suDitemukan:      statusUsaha.ditemukan,
+            suTutup:          statusUsaha.tutup,
+            suGanda:          statusUsaha.ganda,
+            suTdkDitemukan:   statusUsaha.tidakDitemukan,
+            suBaru:           statusUsaha.baru,
+            suTotalHasil:     statusUsaha.totalHasil,
+            // Status Keluarga
+            skPrelist:         statusKeluarga.prelist,
+            skDitemukan:       statusKeluarga.ditemukan,
+            skKeluargaBaru:    statusKeluarga.keluargaBaru,
+            skMeninggal:       statusKeluarga.meninggal,
+            skTdkEligible:     statusKeluarga.tdkEligible,
+            skTdkDapatDitemui: statusKeluarga.tdkDapatDitemui,
+            skTdkDitemukan:    statusKeluarga.tdkDitemukan,
+            skKeluargaKhusus:  statusKeluarga.keluargaKhusus,
+            skTotalHasil:      statusKeluarga.totalHasil
         });
+
     });
 
     // 3. Reset Aggregates
@@ -676,10 +741,8 @@ function processAllData() {
                 koseka: item.koseka,
                 pml: item.pml,
                 totalTarget: 0,
-                open: 0, draft: 0, submitted: 0, approved: 0, rejected: 0, revoked: 0, rejectedK: 0, editedK: 0,
-                slsList: [],
-                usahaTutup: 0,
-                usahaTidakDitemukan: 0
+                open: 0, draft: 0, submitted: 0, approved: 0, rejected: 0, revoked: 0, rejectedK: 0, editedK: 0, revokedK: 0, completedK: 0,
+                slsList: []
             };
         }
         const p = petugasData[item.email];
@@ -692,8 +755,8 @@ function processAllData() {
         p.revoked += item.revoked;
         p.rejectedK += item.rejectedK;
         p.editedK += item.editedK;
-        p.usahaTutup += item.usahaTutup;
-        p.usahaTidakDitemukan += item.usahaTidakDitemukan;
+        p.revokedK += item.revokedK;
+        p.completedK += item.completedK;
         p.slsList.push(item);
 
         // PML Aggregate
@@ -703,11 +766,9 @@ function processAllData() {
                 pml: pmlKey,
                 koseka: item.koseka,
                 totalTarget: 0,
-                open: 0, draft: 0, submitted: 0, approved: 0, rejected: 0, revoked: 0, rejectedK: 0, editedK: 0,
+                open: 0, draft: 0, submitted: 0, approved: 0, rejected: 0, revoked: 0, rejectedK: 0, editedK: 0, revokedK: 0, completedK: 0,
                 pcls: new Set(),
-                slsCount: 0,
-                usahaTutup: 0,
-                usahaTidakDitemukan: 0
+                slsCount: 0
             };
         }
         const pm = pmlData[pmlKey];
@@ -720,8 +781,8 @@ function processAllData() {
         pm.revoked += item.revoked;
         pm.rejectedK += item.rejectedK;
         pm.editedK += item.editedK;
-        pm.usahaTutup += item.usahaTutup;
-        pm.usahaTidakDitemukan += item.usahaTidakDitemukan;
+        pm.revokedK += item.revokedK;
+        pm.completedK += item.completedK;
         pm.pcls.add(item.email);
         pm.slsCount++;
 
@@ -731,12 +792,10 @@ function processAllData() {
             kosekaData[kosekaKey] = {
                 koseka: kosekaKey,
                 totalTarget: 0,
-                open: 0, draft: 0, submitted: 0, approved: 0, rejected: 0, revoked: 0, rejectedK: 0, editedK: 0,
+                open: 0, draft: 0, submitted: 0, approved: 0, rejected: 0, revoked: 0, rejectedK: 0, editedK: 0, revokedK: 0, completedK: 0,
                 pmls: new Set(),
                 pcls: new Set(),
-                slsCount: 0,
-                usahaTutup: 0,
-                usahaTidakDitemukan: 0
+                slsCount: 0
             };
         }
         const ks = kosekaData[kosekaKey];
@@ -749,8 +808,8 @@ function processAllData() {
         ks.revoked += item.revoked;
         ks.rejectedK += item.rejectedK;
         ks.editedK += item.editedK;
-        ks.usahaTutup += item.usahaTutup;
-        ks.usahaTidakDitemukan += item.usahaTidakDitemukan;
+        ks.revokedK += item.revokedK;
+        ks.completedK += item.completedK;
         ks.pmls.add(item.pml);
         ks.pcls.add(item.email);
         ks.slsCount++;
@@ -761,10 +820,8 @@ function processAllData() {
             kecamatanData[kecKey] = {
                 kecamatan: kecKey,
                 totalTarget: 0,
-                open: 0, draft: 0, submitted: 0, approved: 0, rejected: 0, revoked: 0,
-                slsCount: 0,
-                usahaTutup: 0,
-                usahaTidakDitemukan: 0
+                open: 0, draft: 0, submitted: 0, approved: 0, rejected: 0, revoked: 0, rejectedK: 0, editedK: 0, revokedK: 0, completedK: 0,
+                slsCount: 0
             };
         }
         const kc = kecamatanData[kecKey];
@@ -777,8 +834,8 @@ function processAllData() {
         kc.revoked += item.revoked;
         kc.rejectedK += item.rejectedK;
         kc.editedK += item.editedK;
-        kc.usahaTutup += item.usahaTutup;
-        kc.usahaTidakDitemukan += item.usahaTidakDitemukan;
+        kc.revokedK += item.revokedK;
+        kc.completedK += item.completedK;
         kc.slsCount++;
     });
 
@@ -901,37 +958,72 @@ function processAllData() {
     // Store enriched allAnomali globally for the Anomali page
     window.allAnomali = allAnomali;
 
-    // Build status usaha SLS-level list for Status Usaha page
+    // Build status usaha & keluarga SLS-level lists
     buildStatusUsahaList();
+    buildStatusKeluargaList();
 }
 
 function buildStatusUsahaList() {
     const list = [];
-    // Use slsAssignments which already has PJ/PML/PCL/SLS info + usahaTutup/usahaTidakDitemukan
-    // Deduplicate by slsId (one entry per SLS)
     const seen = {};
     slsAssignments.forEach(item => {
         if (seen[item.slsId]) return;
         seen[item.slsId] = true;
-        if (item.usahaTutup === 0 && item.usahaTidakDitemukan === 0) return; // only bermasalah
+        if ((item.suTutup || 0) === 0 && (item.suTdkDitemukan || 0) === 0) return;
         const catatan = catatanMap[item.slsId] || {};
         list.push({
-            slsId: item.slsId,
-            nmsls: item.nmsls,
-            desa: item.desa,
-            kecamatan: item.kecamatan,
-            koseka: item.koseka,
-            pml: item.pml,
-            pclName: item.namaLengkap,
-            tutup: item.usahaTutup,
-            tidakDitemukan: item.usahaTidakDitemukan,
-            total: item.usahaTutup + item.usahaTidakDitemukan,
-            catatanTutup: catatan.catatanTutup || '',
-            catatanTDK: catatan.catatanTDK || ''
+            slsId:          item.slsId,
+            nmsls:          item.nmsls,
+            desa:           item.desa,
+            kecamatan:      item.kecamatan,
+            koseka:         item.koseka,
+            pml:            item.pml,
+            pclName:        item.namaLengkap,
+            prelist:        item.suPrelist  || 0,
+            ditemukan:      item.suDitemukan || 0,
+            tutup:          item.suTutup || 0,
+            ganda:          item.suGanda || 0,
+            tidakDitemukan: item.suTdkDitemukan || 0,
+            baru:           item.suBaru || 0,
+            totalHasil:     item.suTotalHasil || 0,
+            catatanTutup:   catatan.catatanTutup || '',
+            catatanTDK:     catatan.catatanTDK || ''
         });
     });
     window.statusUsahaList = list;
 }
+
+function buildStatusKeluargaList() {
+    const list = [];
+    const seen = {};
+    slsAssignments.forEach(item => {
+        if (seen[item.slsId]) return;
+        seen[item.slsId] = true;
+        if ((item.skKeluargaBaru || 0) === 0 && (item.skTdkDitemukan || 0) === 0) return;
+        list.push({
+            slsId:             item.slsId,
+            nmsls:             item.nmsls,
+            desa:              item.desa,
+            kecamatan:         item.kecamatan,
+            koseka:            item.koseka,
+            pml:               item.pml,
+            pclName:           item.namaLengkap,
+            prelist:           item.skPrelist         || 0,
+            ditemukan:         item.skDitemukan        || 0,
+            keluargaBaru:      item.skKeluargaBaru     || 0,
+            meninggal:         item.skMeninggal        || 0,
+            tdkEligible:       item.skTdkEligible      || 0,
+            tdkDapatDitemui:   item.skTdkDapatDitemui  || 0,
+            tdkDitemukan:      item.skTdkDitemukan     || 0,
+            keluargaKhusus:    item.skKeluargaKhusus   || 0,
+            totalHasil:        item.skTotalHasil       || 0,
+            catatanBaru:       '', // Placeholders for family notes
+            catatanTDK:        ''
+        });
+    });
+    window.statusKeluargaList = list;
+}
+
 
 let statusDistributionChartInst = null;
 let sortPetugasDesc = true;
@@ -939,7 +1031,7 @@ let sortKecamatanDesc = true;
 
 function updateDashboard() {
     let globalTarget = 0;
-    let gOpen = 0, gDraft = 0, gSub = 0, gApp = 0, gRej = 0, gRev = 0, gRejK = 0, gEditK = 0;
+    let gOpen = 0, gDraft = 0, gSub = 0, gApp = 0, gRej = 0, gRev = 0, gRejK = 0, gEditK = 0, gRevK = 0, gComK = 0;
     let gAnomaliDone = 0, gAnomaliTotal = 0;
 
     for (const email in petugasData) {
@@ -953,6 +1045,8 @@ function updateDashboard() {
         gRev += p.revoked;
         gRejK += p.rejectedK;
         gEditK += p.editedK;
+        gRevK += p.revokedK;
+        gComK += p.completedK;
         gAnomaliDone += (p.anomaliDone || 0);
         gAnomaliTotal += (p.anomaliTotal || 0);
     }
@@ -967,6 +1061,8 @@ function updateDashboard() {
     animateValue("kpi-approved", 0, gApp, 1000, ` <span style="font-size: 12px; color: var(--color-approved); opacity: 0.75;">(${globalTarget > 0 ? ((gApp/globalTarget)*100).toFixed(1) : 0}%)</span>`);
     animateValue("kpi-rejected-kab", 0, gRejK, 1000, ` <span style="font-size: 12px; color: #f43f5e; opacity: 0.75;">(${globalTarget > 0 ? ((gRejK/globalTarget)*100).toFixed(1) : 0}%)</span>`);
     animateValue("kpi-edited-kab", 0, gEditK, 1000, ` <span style="font-size: 12px; color: #8b5cf6; opacity: 0.75;">(${globalTarget > 0 ? ((gEditK/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+    animateValue("kpi-revoked-kab", 0, gRevK, 1000, ` <span style="font-size: 12px; color: #db2777; opacity: 0.75;">(${globalTarget > 0 ? ((gRevK/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+    animateValue("kpi-completed-kab", 0, gComK, 1000, ` <span style="font-size: 12px; color: #14b8a6; opacity: 0.75;">(${globalTarget > 0 ? ((gComK/globalTarget)*100).toFixed(1) : 0}%)</span>`);
 
     // Update Anomali Kabupaten Banner
     const elAnomali = document.getElementById("kpi-anomaly-kabupaten");
@@ -1059,7 +1155,9 @@ function updateDashboard() {
                     { label: 'Revoked',   data: [gRev],   backgroundColor: '#f59e0b', barPercentage: 0.9 },
                     { label: 'Approved',  data: [gApp],   backgroundColor: '#10b981', barPercentage: 0.9 },
                     { label: 'Rej. Kab',  data: [gRejK],  backgroundColor: '#f43f5e', barPercentage: 0.9 },
-                    { label: 'Edt. Kab',  data: [gEditK], backgroundColor: '#8b5cf6', barPercentage: 0.9 }
+                    { label: 'Edt. Kab',  data: [gEditK], backgroundColor: '#8b5cf6', barPercentage: 0.9 },
+                    { label: 'Rev. Kab',  data: [gRevK],  backgroundColor: '#db2777', barPercentage: 0.9 },
+                    { label: 'Com. Kab',  data: [gComK],  backgroundColor: '#14b8a6', barPercentage: 0.9 }
                 ]
             },
             options: {
@@ -1247,6 +1345,8 @@ function renderKorwilTable() {
             <td><span class="badge-dot approved"></span> ${item.approved}</td>
             <td><span class="badge-dot" style="background:#f43f5e; box-shadow: 0 0 6px #f43f5e;"></span> ${item.rejectedK || 0}</td>
             <td><span class="badge-dot" style="background:#8b5cf6; box-shadow: 0 0 6px #8b5cf6;"></span> ${item.editedK || 0}</td>
+            <td><span class="badge-dot" style="background:#db2777; box-shadow: 0 0 6px #db2777;"></span> ${item.revokedK || 0}</td>
+            <td><span class="badge-dot" style="background:#14b8a6; box-shadow: 0 0 6px #14b8a6;"></span> ${item.completedK || 0}</td>
             <td>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <div class="progress-bar-thin" style="width:60px; margin:0;"><div class="progress-fill-thin" style="background:${colorSubmitted}; width:${pctSubmitted}%"></div></div>
@@ -1293,6 +1393,8 @@ function renderPetugasTable() {
             <td><span class="badge-dot approved"></span> ${p.approved}</td>
             <td><span class="badge-dot" style="background:#f43f5e; box-shadow: 0 0 6px #f43f5e;"></span> ${p.rejectedK}</td>
             <td><span class="badge-dot" style="background:#8b5cf6; box-shadow: 0 0 6px #8b5cf6;"></span> ${p.editedK}</td>
+            <td><span class="badge-dot" style="background:#db2777; box-shadow: 0 0 6px #db2777;"></span> ${p.revokedK}</td>
+            <td><span class="badge-dot" style="background:#14b8a6; box-shadow: 0 0 6px #14b8a6;"></span> ${p.completedK}</td>
             <td>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <div class="progress-bar-thin" style="width:60px; margin:0;"><div class="progress-fill-thin" style="background:${getProgressBarColor(pct)}; width:${pct}%"></div></div>
@@ -1627,6 +1729,9 @@ function setupNavigation() {
             if (targetId === 'status-usaha') {
                 renderStatusUsahaPage();
             }
+            if (targetId === 'status-keluarga') {
+                renderStatusKeluargaPage();
+            }
 
             // Close mobile sidebar
             document.querySelector('.sidebar')?.classList.remove('open');
@@ -1911,7 +2016,9 @@ function setupAnomalyFilters() {
 // ═══════════════════════════════════════════════════════
 
 let suFilters = { pj: '', pml: '', pcl: '', search: '', sort: 'tidakDitemukan' };
+let skFilters = { pj: '', pml: '', pcl: '', search: '', sort: 'tdkDitemukan' };
 
+// ─── STATUS USAHA PAGE ───────────────────────────────────────────────────────
 function renderStatusUsahaPage() {
     const allList = window.statusUsahaList || [];
     populateSuFilters(allList);
@@ -1934,9 +2041,10 @@ function applySuFilters(list) {
         return true;
     });
     if (f.sort === 'tidakDitemukan') result.sort((a, b) => b.tidakDitemukan - a.tidakDitemukan);
-    else if (f.sort === 'tutup') result.sort((a, b) => b.tutup - a.tutup);
-    else if (f.sort === 'total') result.sort((a, b) => b.total - a.total);
-    else if (f.sort === 'nama') result.sort((a, b) => a.nmsls.localeCompare(b.nmsls));
+    else if (f.sort === 'tutup')     result.sort((a, b) => b.tutup - a.tutup);
+    else if (f.sort === 'total')     result.sort((a, b) => (b.tutup + b.tidakDitemukan) - (a.tutup + a.tidakDitemukan));
+    else if (f.sort === 'prelist')   result.sort((a, b) => b.prelist - a.prelist);
+    else if (f.sort === 'nama')      result.sort((a, b) => a.nmsls.localeCompare(b.nmsls));
     return result;
 }
 
@@ -1945,15 +2053,11 @@ function populateSuFilters(allList) {
     const selPML = document.getElementById('su-filter-pml');
     const selPCL = document.getElementById('su-filter-pcl');
     if (!selPJ) return;
-
-    const allPJs = [...new Set(allList.map(i => i.koseka).filter(Boolean))].sort();
-
-    const pmlSource = suFilters.pj ? allList.filter(i => i.koseka === suFilters.pj) : allList;
-    const allPMLs = [...new Set(pmlSource.map(i => i.pml).filter(Boolean))].sort();
-
-    const pclSource = suFilters.pml ? pmlSource.filter(i => i.pml === suFilters.pml) : pmlSource;
-    const allPCLs = [...new Set(pclSource.map(i => i.pclName).filter(Boolean))].sort();
-
+    const allPJs  = [...new Set(allList.map(i => i.koseka).filter(Boolean))].sort();
+    const pmlSrc  = suFilters.pj  ? allList.filter(i => i.koseka === suFilters.pj)  : allList;
+    const allPMLs = [...new Set(pmlSrc.map(i => i.pml).filter(Boolean))].sort();
+    const pclSrc  = suFilters.pml ? pmlSrc.filter(i => i.pml === suFilters.pml) : pmlSrc;
+    const allPCLs = [...new Set(pclSrc.map(i => i.pclName).filter(Boolean))].sort();
     const fillSelect = (el, opts, cur) => {
         if (!el) return;
         el.innerHTML = `<option value="">Semua</option>` +
@@ -2004,13 +2108,13 @@ function renderSuStats(all, filtered) {
             <i class="ri-alarm-warning-line"></i>
             <div>
                 <span class="su-stat-num">${maxTDK}</span>
-                <span class="su-stat-label">Maks TDK / SLS</span>
+                <span class="su-stat-label">Maks TD / SLS</span>
             </div>
         </div>
         ${syncTime ? `<div class="su-stat-pill su-stat-sync">
             <i class="ri-time-line"></i>
             <div>
-                <span class="su-stat-num" style="font-size:14px;">${syncTime}</span>
+                <span class="su-stat-num" style="font-size:12px;">${syncTime}</span>
                 <span class="su-stat-label">Update Terakhir</span>
             </div>
         </div>` : ''}
@@ -2023,7 +2127,6 @@ function buildSuCardHTML(item) {
     const catatanBadge = hasCatatan
         ? `<span class="su-catatan-badge" title="Ada catatan dari PJ"><i class="ri-sticky-note-line"></i> Catatan</span>`
         : '';
-    // Encode data safely for embedding in HTML attributes
     const encCatatanTutup = encodeURIComponent(item.catatanTutup || '');
     const encCatatanTDK   = encodeURIComponent(item.catatanTDK || '');
     return `
@@ -2050,16 +2153,16 @@ function buildSuCardHTML(item) {
                 <div class="su-metric-chip su-chip-${tdkLevel}">
                     <i class="ri-map-pin-user-line"></i>
                     <span class="su-metric-num">${item.tidakDitemukan}</span>
-                    <span class="su-metric-label">TDK</span>
+                    <span class="su-metric-label">TD</span>
                 </div>
             </div>
         </div>
         <div class="su-card-hierarchy">
-            <span title="PJ Kecamatan"><i class="ri-government-line"></i> ${item.koseka || '-'}</span>
+            <span title="PJ Kecamatan"><i class="ri-government-line"></i> PJ: ${item.koseka || '-'}</span>
             <span class="su-hier-sep">·</span>
-            <span title="PML"><i class="ri-user-star-line"></i> ${item.pml || '-'}</span>
+            <span title="PML"><i class="ri-user-star-line"></i> PML: ${item.pml || '-'}</span>
             <span class="su-hier-sep">·</span>
-            <span title="PCL"><i class="ri-user-smile-line"></i> ${item.pclName || '-'}</span>
+            <span title="PCL"><i class="ri-user-smile-line"></i> PCL: ${item.pclName || '-'}</span>
         </div>
     </div>`;
 }
@@ -2075,7 +2178,6 @@ function renderSuCards(list) {
     }
     el.innerHTML = list.map(item => buildSuCardHTML(item)).join('');
 
-    // Click delegation: open catatan modal on any card click
     el.querySelectorAll('.su-card-clickable').forEach(card => {
         card.addEventListener('click', () => {
             openSuCatatanModal({
@@ -2086,89 +2188,10 @@ function renderSuCards(list) {
                 catatanTDK:   decodeURIComponent(card.dataset.catatanTdk || ''),
                 tutup:  parseInt(card.dataset.tutup) || 0,
                 tdk:    parseInt(card.dataset.tdk)   || 0
-            });
+            }, 'usaha');
         });
     });
 }
-
-// ─── SLS Catatan Modal ────────────────────────────────────────────────────
-function openSuCatatanModal(data) {
-    const modal  = document.getElementById('su-catatan-modal');
-    const title  = document.getElementById('su-catatan-modal-title');
-    const sub    = document.getElementById('su-catatan-modal-sub');
-    const body   = document.getElementById('su-catatan-modal-body');
-    if (!modal) return;
-
-    title.textContent = data.nmsls || data.slsId;
-    sub.textContent   = data.loc || '';
-
-    const formatNote = (text) => {
-        if (!text) return '';
-        // Split on numbered list items like "1. Foo\n2. Bar" or newlines
-        const lines = text.split(/\n|(?=\d+\.\s)/).map(l => l.trim()).filter(Boolean);
-        if (lines.length <= 1) {
-            return `<p style="font-size:13px; color:var(--text-body); line-height:1.6;">${text}</p>`;
-        }
-        return `<ul style="margin:0; padding-left:18px; display:flex; flex-direction:column; gap:6px;">
-            ${lines.map(l => `<li style="font-size:13px; color:var(--text-body); line-height:1.5;">${l}</li>`).join('')}
-        </ul>`;
-    };
-
-    let html = '';
-
-    // Section 1: Usaha Tutup
-    html += `
-    <div style="margin-bottom:16px;">
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-            <span style="background:rgba(239,68,68,0.1); color:#dc2626; border:1px solid rgba(239,68,68,0.25);
-                         border-radius:20px; padding:2px 10px; font-size:11px; font-weight:700;">
-                <i class="ri-store-2-line"></i> Tutup (${data.tutup})
-            </span>
-        </div>
-        ${data.catatanTutup
-            ? formatNote(data.catatanTutup)
-            : `<p style="font-size:12px; color:var(--text-dim); font-style:italic;">Belum ada catatan dari PJ untuk usaha tutup.</p>`
-        }
-    </div>`;
-
-    html += `<hr style="border:none; border-top:1px dashed var(--border-glass-md); margin:16px 0;">`;
-
-    // Section 2: Tidak Ditemukan
-    html += `
-    <div>
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-            <span style="background:rgba(249,115,22,0.1); color:#ea580c; border:1px solid rgba(249,115,22,0.25);
-                         border-radius:20px; padding:2px 10px; font-size:11px; font-weight:700;">
-                <i class="ri-map-pin-user-line"></i> Tidak Ditemukan (${data.tdk})
-            </span>
-        </div>
-        ${data.catatanTDK
-            ? formatNote(data.catatanTDK)
-            : `<p style="font-size:12px; color:var(--text-dim); font-style:italic;">Belum ada catatan dari PJ untuk usaha tidak ditemukan.</p>`
-        }
-    </div>`;
-
-    body.innerHTML = html;
-    modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-}
-
-function closeSuCatatanModal() {
-    const modal = document.getElementById('su-catatan-modal');
-    if (modal) modal.style.display = 'none';
-    document.body.style.overflow = '';
-}
-
-// Wire up close button and backdrop click for catatan modal
-document.addEventListener('DOMContentLoaded', () => {
-    const closeBtn = document.getElementById('su-catatan-modal-close');
-    if (closeBtn) closeBtn.addEventListener('click', closeSuCatatanModal);
-
-    const modal = document.getElementById('su-catatan-modal');
-    if (modal) modal.addEventListener('click', (e) => {
-        if (e.target === modal) closeSuCatatanModal();
-    });
-});
 
 function setupStatusUsahaFilters() {
     const selPJ   = document.getElementById('su-filter-pj');
@@ -2216,6 +2239,337 @@ function setupStatusUsahaFilters() {
         });
     }
 }
+
+// ─── STATUS KELUARGA PAGE ────────────────────────────────────────────────────
+function renderStatusKeluargaPage() {
+    const allList = window.statusKeluargaList || [];
+    populateSkFilters(allList);
+    const filtered = applySkFilters(allList);
+    renderSkStats(allList, filtered);
+    renderSkCards(filtered);
+}
+
+function applySkFilters(list) {
+    const f = skFilters;
+    let result = list.filter(item => {
+        if (f.pj  && item.koseka  !== f.pj)  return false;
+        if (f.pml && item.pml     !== f.pml)  return false;
+        if (f.pcl && item.pclName !== f.pcl)  return false;
+        if (f.search) {
+            const q = f.search.toLowerCase();
+            const hay = `${item.nmsls} ${item.desa} ${item.kecamatan}`.toLowerCase();
+            if (!hay.includes(q)) return false;
+        }
+        return true;
+    });
+    if (f.sort === 'tdkDitemukan')    result.sort((a, b) => b.tdkDitemukan - a.tdkDitemukan);
+    else if (f.sort === 'keluargaBaru' || f.sort === 'baru')  result.sort((a, b) => b.keluargaBaru - a.keluargaBaru);
+    else if (f.sort === 'total')      result.sort((a, b) => (b.tdkDitemukan + b.keluargaBaru) - (a.tdkDitemukan + a.keluargaBaru));
+    else if (f.sort === 'prelist')       result.sort((a, b) => b.prelist - a.prelist);
+    else if (f.sort === 'nama')          result.sort((a, b) => a.nmsls.localeCompare(b.nmsls));
+    return result;
+}
+
+function populateSkFilters(allList) {
+    const selPJ  = document.getElementById('sk-filter-pj');
+    const selPML = document.getElementById('sk-filter-pml');
+    const selPCL = document.getElementById('sk-filter-pcl');
+    if (!selPJ) return;
+    const allPJs  = [...new Set(allList.map(i => i.koseka).filter(Boolean))].sort();
+    const pmlSrc  = skFilters.pj  ? allList.filter(i => i.koseka === skFilters.pj)  : allList;
+    const allPMLs = [...new Set(pmlSrc.map(i => i.pml).filter(Boolean))].sort();
+    const pclSrc  = skFilters.pml ? pmlSrc.filter(i => i.pml === skFilters.pml) : pmlSrc;
+    const allPCLs = [...new Set(pclSrc.map(i => i.pclName).filter(Boolean))].sort();
+    const fillSelect = (el, opts, cur) => {
+        if (!el) return;
+        el.innerHTML = `<option value="">Semua</option>` +
+            opts.map(o => `<option value="${o}" ${o === cur ? 'selected' : ''}>${o}</option>`).join('');
+    };
+    fillSelect(selPJ,  allPJs,  skFilters.pj);
+    fillSelect(selPML, allPMLs, skFilters.pml);
+    fillSelect(selPCL, allPCLs, skFilters.pcl);
+}
+
+function renderSkStats(all, filtered) {
+    const bar = document.getElementById('sk-stats-bar');
+    if (!bar) return;
+    const totalSLS   = all.length;
+    const totalBaru  = all.reduce((s, i) => s + i.keluargaBaru, 0);
+    const totalTDK   = all.reduce((s, i) => s + i.tdkDitemukan, 0);
+    const maxTDK     = all.reduce((m, i) => Math.max(m, i.tdkDitemukan), 0);
+    const syncTime   = window.statusKeluargaTime || '';
+    const fSLS   = filtered.length;
+    const fBaru  = filtered.reduce((s, i) => s + i.keluargaBaru, 0);
+    const fTDK   = filtered.reduce((s, i) => s + i.tdkDitemukan, 0);
+    const isFiltered = fSLS < totalSLS;
+
+    bar.innerHTML = `
+    <div class="su-stats-grid">
+        <div class="su-stat-pill su-stat-sls">
+            <i class="ri-map-pin-2-line"></i>
+            <div>
+                <span class="su-stat-num">${isFiltered ? fSLS + ' <span class="su-stat-of">/ ' + totalSLS + '</span>' : totalSLS}</span>
+                <span class="su-stat-label">SLS Bermasalah</span>
+            </div>
+        </div>
+        <div class="su-stat-pill" style="background: rgba(14, 165, 233, 0.08); border-color: rgba(14, 165, 233, 0.25);">
+            <i class="ri-user-add-line" style="color: #0284c7;"></i>
+            <div>
+                <span class="su-stat-num" style="color: #0284c7;">${isFiltered ? fBaru + ' <span class="su-stat-of">/ ' + totalBaru + '</span>' : totalBaru}</span>
+                <span class="su-stat-label">Keluarga Baru</span>
+            </div>
+        </div>
+        <div class="su-stat-pill su-stat-tdk">
+            <i class="ri-map-pin-user-line"></i>
+            <div>
+                <span class="su-stat-num">${isFiltered ? fTDK + ' <span class="su-stat-of">/ ' + totalTDK + '</span>' : totalTDK}</span>
+                <span class="su-stat-label">Tidak Ditemukan</span>
+            </div>
+        </div>
+        <div class="su-stat-pill su-stat-max">
+            <i class="ri-alarm-warning-line"></i>
+            <div>
+                <span class="su-stat-num">${maxTDK}</span>
+                <span class="su-stat-label">Maks TD / SLS</span>
+            </div>
+        </div>
+        ${syncTime ? `<div class="su-stat-pill su-stat-sync">
+            <i class="ri-time-line"></i>
+            <div>
+                <span class="su-stat-num" style="font-size:12px;">${syncTime}</span>
+                <span class="su-stat-label">Update Terakhir</span>
+            </div>
+        </div>` : ''}
+    </div>`;
+}
+
+function buildSkCardHTML(item) {
+    const tdkLevel = item.tdkDitemukan > 5 ? 'danger' : item.tdkDitemukan > 0 ? 'warning' : 'neutral';
+    const hasCatatan = item.catatanBaru || item.catatanTDK;
+    const catatanBadge = hasCatatan
+        ? `<span class="su-catatan-badge" title="Ada catatan"><i class="ri-sticky-note-line"></i> Catatan</span>`
+        : '';
+    const encCatatanBaru  = encodeURIComponent(item.catatanBaru || '');
+    const encCatatanTDK   = encodeURIComponent(item.catatanTDK || '');
+    return `
+    <div class="su-card su-card-${tdkLevel} su-card-clickable"
+         data-sls-id="${item.slsId}"
+         data-nmsls="${(item.nmsls || '').replace(/"/g, '&quot;')}"
+         data-loc="${([item.desa, item.kecamatan].filter(v => v && v !== 'Belum Terpetakan').join(' · ')).replace(/"/g, '&quot;')}"
+         data-catatan-baru="${encCatatanBaru}"
+         data-catatan-tdk="${encCatatanTDK}"
+         data-baru="${item.keluargaBaru}"
+         data-tdk="${item.tdkDitemukan}">
+        <div class="su-card-top">
+            <div class="su-card-left">
+                <div class="su-card-sls">${item.nmsls || item.slsId}</div>
+                <div class="su-card-loc"><i class="ri-map-2-line"></i> ${[item.desa, item.kecamatan].filter(v => v && v !== 'Belum Terpetakan').join(' · ')}</div>
+                ${catatanBadge}
+            </div>
+            <div class="su-card-metrics">
+                <div class="su-metric-chip su-chip-tutup" style="background: rgba(14, 165, 233, 0.1); border-color: rgba(14, 165, 233, 0.25); color: #0284c7;">
+                    <i class="ri-user-add-line"></i>
+                    <span class="su-metric-num">${item.keluargaBaru}</span>
+                    <span class="su-metric-label">Baru</span>
+                </div>
+                <div class="su-metric-chip su-chip-${tdkLevel}">
+                    <i class="ri-map-pin-user-line"></i>
+                    <span class="su-metric-num">${item.tdkDitemukan}</span>
+                    <span class="su-metric-label">TD</span>
+                </div>
+            </div>
+        </div>
+        <div class="su-card-hierarchy">
+            <span title="PJ Kecamatan"><i class="ri-government-line"></i> PJ: ${item.koseka || '-'}</span>
+            <span class="su-hier-sep">·</span>
+            <span title="PML"><i class="ri-user-star-line"></i> PML: ${item.pml || '-'}</span>
+            <span class="su-hier-sep">·</span>
+            <span title="PCL"><i class="ri-user-smile-line"></i> PCL: ${item.pclName || '-'}</span>
+        </div>
+    </div>`;
+}
+
+function renderSkCards(list) {
+    const el = document.getElementById('sk-card-list');
+    if (!el) return;
+    const countEl = document.getElementById('sk-count');
+    if (countEl) countEl.textContent = list.length;
+    if (list.length === 0) {
+        el.innerHTML = `<div class="su-empty"><i class="ri-inbox-2-line"></i><p>Tidak ada SLS bermasalah yang sesuai filter</p></div>`;
+        return;
+    }
+    el.innerHTML = list.map(item => buildSkCardHTML(item)).join('');
+
+    el.querySelectorAll('.su-card-clickable').forEach(card => {
+        card.addEventListener('click', () => {
+            openSuCatatanModal({
+                slsId:  card.dataset.slsId,
+                nmsls:  card.dataset.nmsls,
+                loc:    card.dataset.loc,
+                catatanBaru:  decodeURIComponent(card.dataset.catatanBaru || ''),
+                catatanTDK:   decodeURIComponent(card.dataset.catatanTdk || ''),
+                keluargaBaru: parseInt(card.dataset.baru)  || 0,
+                tdk:          parseInt(card.dataset.tdk)   || 0
+            }, 'keluarga');
+        });
+    });
+}
+
+function setupStatusKeluargaFilters() {
+    const selPJ   = document.getElementById('sk-filter-pj');
+    const selPML  = document.getElementById('sk-filter-pml');
+    const selPCL  = document.getElementById('sk-filter-pcl');
+    const selSort = document.getElementById('sk-sort');
+    const searchEl  = document.getElementById('sk-search');
+    const clearBtn  = document.getElementById('sk-filter-clear');
+    const toggleBtn = document.getElementById('btn-toggle-sk-filters');
+    const filterBody = document.getElementById('sk-filters-body');
+
+    if (selPJ) selPJ.addEventListener('change', () => {
+        skFilters.pj = selPJ.value; skFilters.pml = ''; skFilters.pcl = '';
+        renderStatusKeluargaPage();
+    });
+    if (selPML) selPML.addEventListener('change', () => {
+        skFilters.pml = selPML.value; skFilters.pcl = '';
+        renderStatusKeluargaPage();
+    });
+    if (selPCL) selPCL.addEventListener('change', () => {
+        skFilters.pcl = selPCL.value;
+        renderStatusKeluargaPage();
+    });
+    if (selSort) selSort.addEventListener('change', () => {
+        skFilters.sort = selSort.value;
+        renderStatusKeluargaPage();
+    });
+    if (searchEl) searchEl.addEventListener('input', () => {
+        skFilters.search = searchEl.value;
+        renderStatusKeluargaPage();
+    });
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+        skFilters = { pj: '', pml: '', pcl: '', search: '', sort: 'tdkDitemukan' };
+        if (selPJ) selPJ.value = '';
+        if (selPML) selPML.value = '';
+        if (selPCL) selPCL.value = '';
+        if (selSort) selSort.value = 'tdkDitemukan';
+        if (searchEl) searchEl.value = '';
+        renderStatusKeluargaPage();
+    });
+    if (toggleBtn && filterBody) {
+        toggleBtn.addEventListener('click', () => {
+            const isOpen = filterBody.classList.toggle('open');
+            toggleBtn.innerHTML = `<i class="ri-filter-3-line"></i> Filter ${isOpen ? '▲' : '▼'}`;
+        });
+    }
+}
+
+function openSuCatatanModal(data, type) {
+    const modal  = document.getElementById('su-catatan-modal');
+    const title  = document.getElementById('su-catatan-modal-title');
+    const sub    = document.getElementById('su-catatan-modal-sub');
+    const body   = document.getElementById('su-catatan-modal-body');
+    if (!modal) return;
+
+    title.textContent = data.nmsls || data.slsId;
+    sub.textContent   = data.loc || '';
+
+    const formatNote = (text) => {
+        if (!text) return '';
+        const lines = text.split(/\n|(?=\d+\.\s)/).map(l => l.trim()).filter(Boolean);
+        if (lines.length <= 1) {
+            return `<p style="font-size:13px; color:var(--text-body); line-height:1.6;">${text}</p>`;
+        }
+        return `<ul style="margin:0; padding-left:18px; display:flex; flex-direction:column; gap:6px;">
+            ${lines.map(l => `<li style="font-size:13px; color:var(--text-body); line-height:1.5;">${l}</li>`).join('')}
+        </ul>`;
+    };
+
+    let html = '';
+    if (type === 'usaha') {
+        html += `
+        <div style="margin-bottom:16px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <span style="background:rgba(239,68,68,0.1); color:#dc2626; border:1px solid rgba(239,68,68,0.25);
+                             border-radius:20px; padding:2px 10px; font-size:11px; font-weight:700;">
+                    <i class="ri-store-2-line"></i> Tutup (${data.tutup})
+                </span>
+            </div>
+            ${data.catatanTutup
+                ? formatNote(data.catatanTutup)
+                : `<p style="font-size:12px; color:var(--text-dim); font-style:italic;">Belum ada catatan dari PJ untuk usaha tutup.</p>`
+            }
+        </div>`;
+
+        html += `<hr style="border:none; border-top:1px dashed var(--border-glass-md); margin:16px 0;">`;
+
+        html += `
+        <div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <span style="background:rgba(249,115,22,0.1); color:#ea580c; border:1px solid rgba(249,115,22,0.25);
+                             border-radius:20px; padding:2px 10px; font-size:11px; font-weight:700;">
+                    <i class="ri-map-pin-user-line"></i> Tidak Ditemukan (${data.tdk})
+                </span>
+            </div>
+            ${data.catatanTDK
+                ? formatNote(data.catatanTDK)
+                : `<p style="font-size:12px; color:var(--text-dim); font-style:italic;">Belum ada catatan dari PJ untuk usaha tidak ditemukan.</p>`
+            }
+        </div>`;
+    } else {
+        html += `
+        <div style="margin-bottom:16px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <span style="background:rgba(14,165,233,0.1); color:#0284c7; border:1px solid rgba(14,165,233,0.25);
+                             border-radius:20px; padding:2px 10px; font-size:11px; font-weight:700;">
+                    <i class="ri-user-add-line"></i> Keluarga Baru (${data.keluargaBaru})
+                </span>
+            </div>
+            ${data.catatanBaru
+                ? formatNote(data.catatanBaru)
+                : `<p style="font-size:12px; color:var(--text-dim); font-style:italic;">Belum ada catatan dari PJ untuk keluarga baru.</p>`
+            }
+        </div>`;
+
+        html += `<hr style="border:none; border-top:1px dashed var(--border-glass-md); margin:16px 0;">`;
+
+        html += `
+        <div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <span style="background:rgba(239,68,68,0.1); color:#dc2626; border:1px solid rgba(239,68,68,0.25);
+                             border-radius:20px; padding:2px 10px; font-size:11px; font-weight:700;">
+                    <i class="ri-map-pin-user-line"></i> Tidak Ditemukan (${data.tdk})
+                </span>
+            </div>
+            ${data.catatanTDK
+                ? formatNote(data.catatanTDK)
+                : `<p style="font-size:12px; color:var(--text-dim); font-style:italic;">Belum ada catatan dari PJ untuk keluarga tidak ditemukan.</p>`
+            }
+        </div>`;
+    }
+
+    body.innerHTML = html;
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+
+
+function closeSuCatatanModal() {
+    const modal = document.getElementById('su-catatan-modal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+// Wire up close button and backdrop click for catatan modal
+document.addEventListener('DOMContentLoaded', () => {
+    const closeBtn = document.getElementById('su-catatan-modal-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeSuCatatanModal);
+
+    const modal = document.getElementById('su-catatan-modal');
+    if (modal) modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeSuCatatanModal();
+    });
+});
+
 
 function setupSearch() {
     const searchInput = document.getElementById('global-search');
@@ -2611,7 +2965,7 @@ function renderPclDetail(email) {
             </div>
 
             <!-- Status Distribution Breakdown -->
-            <div class="detail-stats-grid" style="grid-template-columns: repeat(4, 1fr); gap:6px;">
+            <div class="detail-stats-grid" style="grid-template-columns: repeat(5, 1fr); gap:6px;">
                 <div class="detail-stat-card" style="border-left: 2.5px solid var(--color-open); background: rgba(156, 163, 175, 0.06); padding: 8px 6px;">
                     <span class="label" style="font-size:8px; color: var(--text-dim);">Open</span>
                     <strong class="value" style="font-size:12px; color:var(--color-open);">${data.open} <span style="font-size:10px; opacity:0.8; font-weight:normal; color: var(--text-muted);">(${total > 0 ? (data.open/total*100).toFixed(1) : "0.0"}%)</span></strong>
@@ -2643,6 +2997,14 @@ function renderPclDetail(email) {
                 <div class="detail-stat-card" style="border-left: 2.5px solid #8b5cf6; background: rgba(139, 92, 246, 0.06); padding: 8px 6px;">
                     <span class="label" style="font-size:8px; color: var(--text-dim);">Edt. Kab</span>
                     <strong class="value" style="font-size:12px; color:#8b5cf6;">${data.editedK || 0} <span style="font-size:10px; opacity:0.8; font-weight:normal; color: var(--text-muted);">(${total > 0 ? ((data.editedK || 0)/total*100).toFixed(1) : "0.0"}%)</span></strong>
+                </div>
+                <div class="detail-stat-card" style="border-left: 2.5px solid var(--color-revoked-k); background: rgba(219, 39, 119, 0.06); padding: 8px 6px;">
+                    <span class="label" style="font-size:8px; color: var(--text-dim);">Rev. Kab</span>
+                    <strong class="value" style="font-size:12px; color:var(--color-revoked-k);">${data.revokedK || 0} <span style="font-size:10px; opacity:0.8; font-weight:normal; color: var(--text-muted);">(${total > 0 ? ((data.revokedK || 0)/total*100).toFixed(1) : "0.0"}%)</span></strong>
+                </div>
+                <div class="detail-stat-card" style="border-left: 2.5px solid var(--color-completed-k); background: rgba(20, 184, 166, 0.06); padding: 8px 6px;">
+                    <span class="label" style="font-size:8px; color: var(--text-dim);">Com. Kab</span>
+                    <strong class="value" style="font-size:12px; color:var(--color-completed-k);">${data.completedK || 0} <span style="font-size:10px; opacity:0.8; font-weight:normal; color: var(--text-muted);">(${total > 0 ? ((data.completedK || 0)/total*100).toFixed(1) : "0.0"}%)</span></strong>
                 </div>
             </div>
 
@@ -2698,6 +3060,8 @@ function renderPclDetail(email) {
                     <span style="padding: 2px 5px; border-radius: 4px; background: rgba(16, 185, 129, 0.12); color: var(--color-approved); font-size: 8.5px; font-weight:600;">APP: ${sls.approved}</span>
                     <span style="padding: 2px 5px; border-radius: 4px; background: rgba(244, 63, 94, 0.12); color: #f43f5e; font-size: 8.5px; font-weight:600;">REJ ADM: ${sls.rejectedK || 0}</span>
                     <span style="padding: 2px 5px; border-radius: 4px; background: rgba(139, 92, 246, 0.12); color: #8b5cf6; font-size: 8.5px; font-weight:600;">EDT ADM: ${sls.editedK || 0}</span>
+                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(219, 39, 119, 0.12); color: var(--color-revoked-k); font-size: 8.5px; font-weight:600;">REV ADM: ${sls.revokedK || 0}</span>
+                    <span style="padding: 2px 5px; border-radius: 4px; background: rgba(20, 184, 166, 0.12); color: var(--color-completed-k); font-size: 8.5px; font-weight:600;">COM ADM: ${sls.completedK || 0}</span>
                 </div>
                 <div style="display: flex; gap: 4px; align-items: center;">
                     <span style="padding: 2px 5px; border-radius: 4px; background: ${sls.usahaTutup > 0 ? 'rgba(217, 119, 6, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.usahaTutup > 0 ? '#d97706' : 'var(--text-dim)'}; border: 1px solid ${sls.usahaTutup > 0 ? 'rgba(217, 119, 6, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Usaha Tutup"><i class="ri-store-2-line"></i> ${sls.usahaTutup || 0}</span>
@@ -2849,7 +3213,7 @@ function exportOverviewToExcel() {
     }).sort((a, b) => b.ts - a.ts);
     pList.forEach(p => {
         const anomStr = `${p.anomaliDone || 0}/${p.anomaliTotal || 0}`;
-        ws_data.push([p.namaLengkap, p.koseka, p.totalTarget, p.ts, parseFloat(p.pct), p.submitted, p.approved, p.rejected, p.revoked, p.rejectedK, p.editedK, p.draft, p.open, anomStr, p.usahaTutup || 0, p.usahaTidakDitemukan || 0]);
+        ws_data.push([p.namaLengkap, p.koseka, p.totalTarget, p.ts, parseFloat(p.pct), p.submitted, p.approved, p.rejected, p.revoked, p.rejectedK, p.editedK, p.revokedK, p.completedK, p.draft, p.open, anomStr, p.usahaTutup || 0, p.usahaTidakDitemukan || 0]);
     });
     blank(2);
 
@@ -2865,7 +3229,7 @@ function exportOverviewToExcel() {
     }).sort((a, b) => b.ts - a.ts);
     kList.forEach(k => {
         const anomStr = `${k.anomaliDone || 0}/${k.anomaliTotal || 0}`;
-        ws_data.push([k.kecamatan, k.slsCount, k.totalTarget, k.ts, parseFloat(k.pct), k.submitted, k.approved, k.rejected, k.revoked, k.rejectedK, k.editedK, k.draft, k.open, anomStr, k.usahaTutup || 0, k.usahaTidakDitemukan || 0]);
+        ws_data.push([k.kecamatan, k.slsCount, k.totalTarget, k.ts, parseFloat(k.pct), k.submitted, k.approved, k.rejected, k.revoked, k.rejectedK, k.editedK, k.revokedK, k.completedK, k.draft, k.open, anomStr, k.usahaTutup || 0, k.usahaTidakDitemukan || 0]);
     });
     blank(2);
 

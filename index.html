@@ -13,7 +13,7 @@
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="img/se.png">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/style.css?v=76">
+    <link rel="stylesheet" href="css/style.css?v=77">
     <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -102,6 +102,10 @@
                     <i class="ri-store-3-line"></i>
                     <span>Status Usaha</span>
                 </a>
+                <a href="#" class="nav-item" data-target="status-keluarga">
+                    <i class="ri-group-line"></i>
+                    <span>Status Keluarga</span>
+                </a>
                 <a href="#" class="nav-item" data-target="petugas" style="display: none !important;">
                     <i class="ri-user-smile-line"></i>
                     <span>Petugas (PCL)</span>
@@ -132,6 +136,10 @@
                         <div style="display:flex; justify-content:space-between; gap: 8px;">
                             <span>Status Usaha:</span>
                             <strong id="sync-status-usaha" style="color:var(--text-title); font-weight: 500;">-</strong>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; gap: 8px;">
+                            <span>Status Keluarga:</span>
+                            <strong id="sync-status-keluarga" style="color:var(--text-title); font-weight: 500;">-</strong>
                         </div>
                     </div>
                 </div>
@@ -307,6 +315,30 @@
                             </div>
                         </div>
 
+                        <!-- REVOKED BY ADMIN KABUPATEN Card -->
+                        <div class="kpi-card status-card status-revoked-kab glass-panel-inner">
+                            <div class="kpi-card-header">
+                                <span class="label">REV. KABUPATEN</span>
+                                <span class="indicator-dot" style="background: var(--color-revoked-k); box-shadow: 0 0 8px rgba(219,39,119,0.6);"></span>
+                            </div>
+                            <div class="kpi-card-body">
+                                <h3 id="kpi-revoked-kab">0</h3>
+                                <p class="kpi-sub-desc">Ditarik Admin</p>
+                            </div>
+                        </div>
+
+                        <!-- COMPLETED BY ADMIN KABUPATEN Card -->
+                        <div class="kpi-card status-card status-completed-kab glass-panel-inner">
+                            <div class="kpi-card-header">
+                                <span class="label">COM. KABUPATEN</span>
+                                <span class="indicator-dot" style="background: var(--color-completed-k); box-shadow: 0 0 8px rgba(20,184,166,0.6);"></span>
+                            </div>
+                            <div class="kpi-card-body">
+                                <h3 id="kpi-completed-kab">0</h3>
+                                <p class="kpi-sub-desc">Selesai Final</p>
+                            </div>
+                        </div>
+
                     </div>
 
                     <!-- Anomali Kabupaten Summary Section -->
@@ -478,6 +510,8 @@
                                         <th title="Approved">APP</th>
                                         <th title="Rejected Kab">REJ ADM</th>
                                         <th title="Edited Kab">EDT ADM</th>
+                                        <th title="Revoked Kab">REV ADM</th>
+                                        <th title="Completed Kab">COM ADM</th>
                                         <th>Progres Submitted</th>
                                         <th>Progres Pendataan</th>
                                         <th>Anomali Usaha</th>
@@ -522,6 +556,8 @@
                                         <th title="Approved">APP</th>
                                         <th title="Rejected Kab">REJ ADM</th>
                                         <th title="Edited Kab">EDT ADM</th>
+                                        <th title="Revoked Kab">REV ADM</th>
+                                        <th title="Completed Kab">COM ADM</th>
                                         <th>Progress %</th>
                                     </tr>
                                 </thead>
@@ -756,7 +792,7 @@
                     <div class="section-title-block">
                         <div>
                             <h1>Status Usaha</h1>
-                            <p>SLS yang memiliki usaha tutup atau tidak ditemukan &mdash; filter by PJ, PML, PCL dengan cascading otomatis.</p>
+                            <p>Progres pendataan per Sub-SLS &mdash; prelist, responden didata, dan sedang didata (draft).</p>
                         </div>
                     </div>
 
@@ -774,9 +810,10 @@
                             <div class="su-sort-wrap">
                                 <label><i class="ri-sort-desc"></i></label>
                                 <select id="su-sort">
-                                    <option value="tidakDitemukan">TDK Terbanyak</option>
+                                    <option value="tidakDitemukan">TD Terbanyak</option>
                                     <option value="tutup">Tutup Terbanyak</option>
                                     <option value="total">Total Masalah</option>
+                                    <option value="prelist">Prelist Terbesar</option>
                                     <option value="nama">Nama SLS A-Z</option>
                                 </select>
                             </div>
@@ -801,13 +838,75 @@
                     </div>
 
                     <!-- Card List -->
-                    <div class="su-panel glass-panel-inner">
+                    <div class="su-panel glass-panel-inner" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
                         <div class="su-panel-header">
-                            <span><i class="ri-store-3-line"></i> Daftar SLS Bermasalah</span>
+                            <span><i class="ri-store-3-line"></i> Daftar SLS Bermasalah (Usaha)</span>
                             <span class="badge-count" id="su-count">0</span>
                         </div>
                         <div class="su-card-list" id="su-card-list">
                             <div class="su-empty"><i class="ri-inbox-2-line"></i><p>Pilih tab Status Usaha untuk memuat data</p></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Status Keluarga Page -->
+                <section id="view-status-keluarga" class="view-section">
+                    <div class="section-title-block">
+                        <div>
+                            <h1>Status Keluarga</h1>
+                            <p>Pemutakhiran keluarga per Sub-SLS &mdash; ditemukan, keluarga baru, tidak ditemukan, dan lainnya.</p>
+                        </div>
+                    </div>
+
+                    <!-- Stats Summary Bar -->
+                    <div id="sk-stats-bar" class="su-stats-bar-wrapper"></div>
+
+                    <!-- Filter Bar -->
+                    <div class="su-filter-bar glass-panel-inner">
+                        <div class="su-filter-top">
+                            <button id="btn-toggle-sk-filters" class="su-toggle-btn"><i class="ri-filter-3-line"></i> Filter &#9660;</button>
+                            <div class="su-search-wrap">
+                                <i class="ri-search-line"></i>
+                                <input id="sk-search" type="text" placeholder="Cari nama SLS, desa, kecamatan..." autocomplete="off">
+                            </div>
+                            <div class="su-sort-wrap">
+                                <label><i class="ri-sort-desc"></i></label>
+                                <select id="sk-sort">
+                                    <option value="tdkDitemukan">Tdk Ditemukan Terbanyak</option>
+                                    <option value="keluargaBaru">Kel. Baru Terbanyak</option>
+                                    <option value="total">Total Masalah</option>
+                                    <option value="prelist">Prelist Terbesar</option>
+                                    <option value="nama">Nama SLS A-Z</option>
+                                </select>
+                            </div>
+                            <button id="sk-filter-clear" class="su-clear-btn" title="Reset semua filter"><i class="ri-refresh-line"></i></button>
+                        </div>
+                        <div id="sk-filters-body" class="su-filters-body">
+                            <div class="su-filter-row">
+                                <div class="su-filter-group">
+                                    <label><i class="ri-government-line"></i> PJ Kecamatan</label>
+                                    <select id="sk-filter-pj"><option value="">Semua</option></select>
+                                </div>
+                                <div class="su-filter-group">
+                                    <label><i class="ri-user-star-line"></i> PML</label>
+                                    <select id="sk-filter-pml"><option value="">Semua</option></select>
+                                </div>
+                                <div class="su-filter-group">
+                                    <label><i class="ri-user-smile-line"></i> PCL</label>
+                                    <select id="sk-filter-pcl"><option value="">Semua</option></select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card List -->
+                    <div class="su-panel glass-panel-inner" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+                        <div class="su-panel-header">
+                            <span><i class="ri-group-line"></i> Daftar SLS Bermasalah (Keluarga)</span>
+                            <span class="badge-count" id="sk-count">0</span>
+                        </div>
+                        <div class="su-card-list" id="sk-card-list">
+                            <div class="su-empty"><i class="ri-inbox-2-line"></i><p>Pilih tab Status Keluarga untuk memuat data</p></div>
                         </div>
                     </div>
                 </section>
@@ -887,6 +986,6 @@
     </div>
 
     <!-- Custom JS script -->
-    <script src="js/app.js?v=82"></script>
+    <script src="js/app.js?v=87"></script>
 </body>
 </html>
