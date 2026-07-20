@@ -77,7 +77,7 @@ function getProgressBarColor(pct) {
     return `hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%)`;
 }
 
-function makeBadgesRow(anomaliDone = 0, anomaliTotal = 0, usahaTutup = 0, usahaTidakDitemukan = 0) {
+function makeBadgesRow(anomaliDone = 0, anomaliTotal = 0, usahaTutup = 0, usahaTidakDitemukan = 0, keluargaTidakDitemukan = 0, keluargaBaru = 0) {
     let anomaliBadgeClass = 'anomali-none';
     let anomaliIcon = 'ri-checkbox-circle-line';
     if (anomaliTotal > 0) {
@@ -90,9 +90,9 @@ function makeBadgesRow(anomaliDone = 0, anomaliTotal = 0, usahaTutup = 0, usahaT
         }
     }
     return `
-        <div style="display:flex; gap:4px; flex-wrap:nowrap; margin-bottom:8px; align-items:center; width:100%; overflow:hidden;">
-            <div class="anomali-badge ${anomaliBadgeClass}" title="Anomali: ${anomaliDone}/${anomaliTotal} Ditindaklanjuti" style="font-size:9.5px; padding:2px 6px; white-space:nowrap; display:inline-flex; align-items:center; gap:3px; flex-shrink:1; overflow:hidden;">
-                <i class="${anomaliIcon}" style="font-size:10px; flex-shrink:0;"></i> <span style="overflow:hidden; text-overflow:ellipsis;">Anomali: ${anomaliDone}/${anomaliTotal}</span>
+        <div style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px; align-items:center; width:100%;">
+            <div class="anomali-badge ${anomaliBadgeClass}" title="Anomali: ${anomaliDone}/${anomaliTotal} Ditindaklanjuti" style="font-size:9.5px; padding:2px 6px; white-space:nowrap; display:inline-flex; align-items:center; gap:3px; flex-shrink:0;">
+                <i class="${anomaliIcon}" style="font-size:10px;"></i> <span>Anomali: ${anomaliDone}/${anomaliTotal}</span>
             </div>
             <div class="anomali-badge" style="font-size:9.5px; padding:2px 6px; white-space:nowrap; display:inline-flex; align-items:center; gap:3px; flex-shrink:0; font-weight:600; ${usahaTutup > 0 ? 'background:rgba(217,119,6,0.1); color:#d97706; border:1px solid rgba(217,119,6,0.25);' : 'background:rgba(0,0,0,0.03); color:var(--text-dim); border:1px solid rgba(0,0,0,0.08);'}" title="Usaha Tutup: ${usahaTutup}">
                 <i class="ri-store-2-line" style="font-size:10px; font-weight:normal;"></i> ${usahaTutup}
@@ -100,11 +100,17 @@ function makeBadgesRow(anomaliDone = 0, anomaliTotal = 0, usahaTutup = 0, usahaT
             <div class="anomali-badge" style="font-size:9.5px; padding:2px 6px; white-space:nowrap; display:inline-flex; align-items:center; gap:3px; flex-shrink:0; font-weight:600; ${usahaTidakDitemukan > 0 ? 'background:rgba(239,68,68,0.08); color:#dc2626; border:1px solid rgba(239,68,68,0.22);' : 'background:rgba(0,0,0,0.03); color:var(--text-dim); border:1px solid rgba(0,0,0,0.08);'}" title="Usaha Tidak Ditemukan: ${usahaTidakDitemukan}">
                 <i class="ri-map-pin-user-line" style="font-size:10px; font-weight:normal;"></i> ${usahaTidakDitemukan}
             </div>
+            <div class="anomali-badge" style="font-size:9.5px; padding:2px 6px; white-space:nowrap; display:inline-flex; align-items:center; gap:3px; flex-shrink:0; font-weight:600; ${keluargaTidakDitemukan > 0 ? 'background:rgba(239,68,68,0.08); color:#dc2626; border:1px solid rgba(239,68,68,0.22);' : 'background:rgba(0,0,0,0.03); color:var(--text-dim); border:1px solid rgba(0,0,0,0.08);'}" title="Keluarga Tidak Ditemukan: ${keluargaTidakDitemukan}">
+                <i class="ri-home-4-line" style="font-size:10px; font-weight:normal;"></i> ${keluargaTidakDitemukan}
+            </div>
+            <div class="anomali-badge" style="font-size:9.5px; padding:2px 6px; white-space:nowrap; display:inline-flex; align-items:center; gap:3px; flex-shrink:0; font-weight:600; ${keluargaBaru > 0 ? 'background:rgba(16,185,129,0.1); color:#10b981; border:1px solid rgba(16,185,129,0.25);' : 'background:rgba(0,0,0,0.03); color:var(--text-dim); border:1px solid rgba(0,0,0,0.08);'}" title="Keluarga Baru: ${keluargaBaru}">
+                <i class="ri-user-add-line" style="font-size:10px; font-weight:normal;"></i> ${keluargaBaru}
+            </div>
         </div>
     `;
 }
 
-function makeTripleBar(name, pendataan, submit, approve, anomaliDone = 0, anomaliTotal = 0, usahaTutup = 0, usahaTidakDitemukan = 0) {
+function makeTripleBar(name, pendataan, submit, approve, anomaliDone = 0, anomaliTotal = 0, usahaTutup = 0, usahaTidakDitemukan = 0, keluargaTidakDitemukan = 0, keluargaBaru = 0) {
     const colPen = getProgressBarColor(pendataan);
     const colSub = getProgressBarColor(submit);
     const colApp = getProgressBarColor(approve);
@@ -117,7 +123,7 @@ function makeTripleBar(name, pendataan, submit, approve, anomaliDone = 0, anomal
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; gap:8px;">
                 <div class="pj-pml-name" title="${name}" style="margin-bottom:0; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${name}</div>
             </div>
-            ${makeBadgesRow(anomaliDone, anomaliTotal, usahaTutup, usahaTidakDitemukan)}
+            ${makeBadgesRow(anomaliDone, anomaliTotal, usahaTutup, usahaTidakDitemukan, keluargaTidakDitemukan, keluargaBaru)}
             <div class="pj-pml-bars">
                 <div class="pj-pml-bar-row">
                     <span class="pj-pml-label">Pendataan</span>
@@ -162,11 +168,12 @@ function renderOverviewTables() {
                 name: k, total, tersubmit, 
                 pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, 
                 anomaliDone: data.anomaliDone || 0, anomaliTotal: data.anomaliTotal || 0,
-                usahaTutup: data.usahaTutup || 0, usahaTidakDitemukan: data.usahaTidakDitemukan || 0
+                usahaTutup: data.usahaTutup || 0, usahaTidakDitemukan: data.usahaTidakDitemukan || 0,
+                keluargaTidakDitemukan: data.keluargaTidakDitemukan || 0, keluargaBaru: data.keluargaBaru || 0
             });
         });
         pjList.sort((a, b) => sortPjDesc ? b.pendataan - a.pendataan : a.pendataan - b.pendataan);
-        listPj.innerHTML = pjList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve, p.anomaliDone, p.anomaliTotal, p.usahaTutup, p.usahaTidakDitemukan)).join('');
+        listPj.innerHTML = pjList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve, p.anomaliDone, p.anomaliTotal, p.usahaTutup, p.usahaTidakDitemukan, p.keluargaTidakDitemukan, p.keluargaBaru)).join('');
     }
 
     // ── Progres PML ────────────────────────────────
@@ -185,11 +192,12 @@ function renderOverviewTables() {
                 name: p, total, tersubmit, 
                 pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, 
                 anomaliDone: data.anomaliDone || 0, anomaliTotal: data.anomaliTotal || 0,
-                usahaTutup: data.usahaTutup || 0, usahaTidakDitemukan: data.usahaTidakDitemukan || 0
+                usahaTutup: data.usahaTutup || 0, usahaTidakDitemukan: data.usahaTidakDitemukan || 0,
+                keluargaTidakDitemukan: data.keluargaTidakDitemukan || 0, keluargaBaru: data.keluargaBaru || 0
             });
         });
         pmlList.sort((a, b) => sortPmlDesc ? b.pendataan - a.pendataan : a.pendataan - b.pendataan);
-        listPml.innerHTML = pmlList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve, p.anomaliDone, p.anomaliTotal, p.usahaTutup, p.usahaTidakDitemukan)).join('');
+        listPml.innerHTML = pmlList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve, p.anomaliDone, p.anomaliTotal, p.usahaTutup, p.usahaTidakDitemukan, p.keluargaTidakDitemukan, p.keluargaBaru)).join('');
     }
 }
 
@@ -1054,6 +1062,7 @@ function updateDashboard() {
     let globalTarget = 0;
     let gOpen = 0, gDraft = 0, gSub = 0, gApp = 0, gRej = 0, gRev = 0, gRejK = 0, gEditK = 0, gRevK = 0, gComK = 0;
     let gAnomaliDone = 0, gAnomaliTotal = 0;
+    let gUsahaTutup = 0, gUsahaTdk = 0, gKeluargaTdk = 0, gKeluargaBaru = 0;
 
     for (const email in petugasData) {
         const p = petugasData[email];
@@ -1070,6 +1079,10 @@ function updateDashboard() {
         gComK += p.completedK;
         gAnomaliDone += (p.anomaliDone || 0);
         gAnomaliTotal += (p.anomaliTotal || 0);
+        gUsahaTutup += (p.usahaTutup || 0);
+        gUsahaTdk += (p.usahaTidakDitemukan || 0);
+        gKeluargaTdk += (p.keluargaTidakDitemukan || 0);
+        gKeluargaBaru += (p.keluargaBaru || 0);
     }
 
     // Populate overview numbers with animation
@@ -1080,10 +1093,23 @@ function updateDashboard() {
     animateValue("kpi-rejected", 0, gRej, 1000, ` <span style="font-size: 12px; color: var(--color-rejected); opacity: 0.75;">(${globalTarget > 0 ? ((gRej/globalTarget)*100).toFixed(1) : 0}%)</span>`);
     animateValue("kpi-revoked", 0, gRev, 1000, ` <span style="font-size: 12px; color: var(--color-revoked); opacity: 0.75;">(${globalTarget > 0 ? ((gRev/globalTarget)*100).toFixed(1) : 0}%)</span>`);
     animateValue("kpi-approved", 0, gApp, 1000, ` <span style="font-size: 12px; color: var(--color-approved); opacity: 0.75;">(${globalTarget > 0 ? ((gApp/globalTarget)*100).toFixed(1) : 0}%)</span>`);
-    animateValue("kpi-rejected-kab", 0, gRejK, 1000, ` <span style="font-size: 12px; color: #f43f5e; opacity: 0.75;">(${globalTarget > 0 ? ((gRejK/globalTarget)*100).toFixed(1) : 0}%)</span>`);
-    animateValue("kpi-edited-kab", 0, gEditK, 1000, ` <span style="font-size: 12px; color: #8b5cf6; opacity: 0.75;">(${globalTarget > 0 ? ((gEditK/globalTarget)*100).toFixed(1) : 0}%)</span>`);
-    animateValue("kpi-revoked-kab", 0, gRevK, 1000, ` <span style="font-size: 12px; color: #db2777; opacity: 0.75;">(${globalTarget > 0 ? ((gRevK/globalTarget)*100).toFixed(1) : 0}%)</span>`);
-    animateValue("kpi-completed-kab", 0, gComK, 1000, ` <span style="font-size: 12px; color: #14b8a6; opacity: 0.75;">(${globalTarget > 0 ? ((gComK/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+    animateValue("kpi-rejected-kab", 0, gRejK, 1000, ` <span style="font-size: 12px; color: var(--color-rejected-k); opacity: 0.75;">(${globalTarget > 0 ? ((gRejK/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+    animateValue("kpi-edited-kab", 0, gEditK, 1000, ` <span style="font-size: 12px; color: var(--color-edited-k); opacity: 0.75;">(${globalTarget > 0 ? ((gEditK/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+    animateValue("kpi-revoked-kab", 0, gRevK, 1000, ` <span style="font-size: 12px; color: var(--color-revoked-k); opacity: 0.75;">(${globalTarget > 0 ? ((gRevK/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+    animateValue("kpi-completed-kab", 0, gComK, 1000, ` <span style="font-size: 12px; color: var(--color-completed-k); opacity: 0.75;">(${globalTarget > 0 ? ((gComK/globalTarget)*100).toFixed(1) : 0}%)</span>`);
+
+    // Update Rekap Temuan Lapangan
+    const elUsahaTutup = document.getElementById("kpi-usaha-tutup");
+    if (elUsahaTutup) animateValue("kpi-usaha-tutup", 0, gUsahaTutup, 1000);
+    
+    const elUsahaTdk = document.getElementById("kpi-usaha-tdk");
+    if (elUsahaTdk) animateValue("kpi-usaha-tdk", 0, gUsahaTdk, 1000);
+    
+    const elKeluargaTdk = document.getElementById("kpi-keluarga-tdk");
+    if (elKeluargaTdk) animateValue("kpi-keluarga-tdk", 0, gKeluargaTdk, 1000);
+    
+    const elKeluargaBaru = document.getElementById("kpi-keluarga-baru");
+    if (elKeluargaBaru) animateValue("kpi-keluarga-baru", 0, gKeluargaBaru, 1000);
 
     // Update Anomali Kabupaten Banner
     const elAnomali = document.getElementById("kpi-anomaly-kabupaten");
@@ -1169,15 +1195,15 @@ function updateDashboard() {
             data: {
                 labels: ['Status Distribution'],
                 datasets: [
-                    { label: 'Open',      data: [gOpen],  backgroundColor: '#9ca3af', barPercentage: 0.9 },
+                    { label: 'Open',      data: [gOpen],  backgroundColor: '#94a3b8', barPercentage: 0.9 },
                     { label: 'Draft',     data: [gDraft], backgroundColor: '#a855f7', barPercentage: 0.9 },
-                    { label: 'Submitted', data: [gSub],   backgroundColor: '#0ea5e9', barPercentage: 0.9 },
-                    { label: 'Rejected',  data: [gRej],   backgroundColor: '#ef4444', barPercentage: 0.9 },
-                    { label: 'Revoked',   data: [gRev],   backgroundColor: '#f59e0b', barPercentage: 0.9 },
+                    { label: 'Submitted', data: [gSub],   backgroundColor: '#3b82f6', barPercentage: 0.9 },
+                    { label: 'Rejected PML',  data: [gRej],   backgroundColor: '#ef4444', barPercentage: 0.9 },
+                    { label: 'Revoked PML',   data: [gRev],   backgroundColor: '#f97316', barPercentage: 0.9 },
                     { label: 'Approved',  data: [gApp],   backgroundColor: '#10b981', barPercentage: 0.9 },
-                    { label: 'Rej. Kab',  data: [gRejK],  backgroundColor: '#f43f5e', barPercentage: 0.9 },
-                    { label: 'Edt. Kab',  data: [gEditK], backgroundColor: '#8b5cf6', barPercentage: 0.9 },
-                    { label: 'Rev. Kab',  data: [gRevK],  backgroundColor: '#db2777', barPercentage: 0.9 },
+                    { label: 'Rej. Kab',  data: [gRejK],  backgroundColor: '#be123c', barPercentage: 0.9 },
+                    { label: 'Edt. Kab',  data: [gEditK], backgroundColor: '#eab308', barPercentage: 0.9 },
+                    { label: 'Rev. Kab',  data: [gRevK],  backgroundColor: '#8b5cf6', barPercentage: 0.9 },
                     { label: 'Com. Kab',  data: [gComK],  backgroundColor: '#14b8a6', barPercentage: 0.9 }
                 ]
             },
@@ -1254,12 +1280,13 @@ function renderProgresPetugasList() {
             name: p.namaLengkap, total, tersubmit, 
             pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, 
             anomaliDone: p.anomaliDone || 0, anomaliTotal: p.anomaliTotal || 0,
-            usahaTutup: p.usahaTutup || 0, usahaTidakDitemukan: p.usahaTidakDitemukan || 0
+            usahaTutup: p.usahaTutup || 0, usahaTidakDitemukan: p.usahaTidakDitemukan || 0,
+            keluargaTidakDitemukan: p.keluargaTidakDitemukan || 0, keluargaBaru: p.keluargaBaru || 0
         };
     }).filter(Boolean);
     
     pList.sort((a, b) => sortPetugasDesc ? b.pendataan - a.pendataan : a.pendataan - b.pendataan);
-    listContainer.innerHTML = pList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve, p.anomaliDone, p.anomaliTotal, p.usahaTutup, p.usahaTidakDitemukan)).join('');
+    listContainer.innerHTML = pList.map(p => makeTripleBar(p.name, p.pendataan, p.submit, p.approve, p.anomaliDone, p.anomaliTotal, p.usahaTutup, p.usahaTidakDitemukan, p.keluargaTidakDitemukan, p.keluargaBaru)).join('');
 }
 
 function renderProgresKecamatanList() {
@@ -1277,12 +1304,13 @@ function renderProgresKecamatanList() {
             name: k.kecamatan, total, tersubmit, 
             pendataan: pctPendataan, submit: pctSubmit, approve: pctApprove, 
             anomaliDone: k.anomaliDone || 0, anomaliTotal: k.anomaliTotal || 0,
-            usahaTutup: k.usahaTutup || 0, usahaTidakDitemukan: k.usahaTidakDitemukan || 0
+            usahaTutup: k.usahaTutup || 0, usahaTidakDitemukan: k.usahaTidakDitemukan || 0,
+            keluargaTidakDitemukan: k.keluargaTidakDitemukan || 0, keluargaBaru: k.keluargaBaru || 0
         };
     }).filter(Boolean);
     
     kList.sort((a, b) => sortKecamatanDesc ? b.pendataan - a.pendataan : a.pendataan - b.pendataan);
-    listContainer.innerHTML = kList.map(k => makeTripleBar(k.name, k.pendataan, k.submit, k.approve, k.anomaliDone, k.anomaliTotal, k.usahaTutup, k.usahaTidakDitemukan)).join('');
+    listContainer.innerHTML = kList.map(k => makeTripleBar(k.name, k.pendataan, k.submit, k.approve, k.anomaliDone, k.anomaliTotal, k.usahaTutup, k.usahaTidakDitemukan, k.keluargaTidakDitemukan, k.keluargaBaru)).join('');
 }
 
 function renderKorwilTable() {
@@ -3031,15 +3059,23 @@ function renderPclDetail(email) {
                 </div>
             </div>
 
-            <!-- Rekap Usaha Tutup & Tidak Ditemukan -->
+            <!-- Rekap Temuan Lapangan -->
             <div class="detail-stats-grid" style="grid-template-columns: repeat(2, 1fr); gap:6px;">
                 <div class="detail-stat-card" style="border: 1px solid rgba(217, 119, 6, 0.25); border-left: 3px solid #d97706; background: linear-gradient(135deg, rgba(217, 119, 6, 0.08), rgba(217, 119, 6, 0.01)); padding: 8px 10px;">
-                    <span class="label" style="font-size:8.5px; color: #d97706; font-weight:700; letter-spacing:0.5px;">USAHA TUTUP (TOTAL)</span>
-                    <strong class="value" style="font-size:13px; color:#d97706; margin-top:2px;">${data.usahaTutup || 0} Usaha</strong>
+                    <span class="label" style="font-size:8.5px; color: #d97706; font-weight:700; letter-spacing:0.5px;">USAHA TUTUP</span>
+                    <strong class="value" style="font-size:13px; color:#d97706; margin-top:2px;">${data.usahaTutup || 0}</strong>
                 </div>
                 <div class="detail-stat-card" style="border: 1px solid rgba(220, 38, 38, 0.25); border-left: 3px solid #dc2626; background: linear-gradient(135deg, rgba(220, 38, 38, 0.08), rgba(220, 38, 38, 0.01)); padding: 8px 10px;">
-                    <span class="label" style="font-size:8.5px; color: #dc2626; font-weight:700; letter-spacing:0.5px;">USAHA TIDAK DITEMUKAN (TOTAL)</span>
-                    <strong class="value" style="font-size:13px; color:#dc2626; margin-top:2px;">${data.usahaTidakDitemukan || 0} Usaha</strong>
+                    <span class="label" style="font-size:8.5px; color: #dc2626; font-weight:700; letter-spacing:0.5px;">USAHA TDK DITEMUKAN</span>
+                    <strong class="value" style="font-size:13px; color:#dc2626; margin-top:2px;">${data.usahaTidakDitemukan || 0}</strong>
+                </div>
+                <div class="detail-stat-card" style="border: 1px solid rgba(220, 38, 38, 0.25); border-left: 3px solid #dc2626; background: linear-gradient(135deg, rgba(220, 38, 38, 0.08), rgba(220, 38, 38, 0.01)); padding: 8px 10px;">
+                    <span class="label" style="font-size:8.5px; color: #dc2626; font-weight:700; letter-spacing:0.5px;">KEL. TDK DITEMUKAN</span>
+                    <strong class="value" style="font-size:13px; color:#dc2626; margin-top:2px;">${data.keluargaTidakDitemukan || 0}</strong>
+                </div>
+                <div class="detail-stat-card" style="border: 1px solid rgba(16, 185, 129, 0.25); border-left: 3px solid #10b981; background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.01)); padding: 8px 10px;">
+                    <span class="label" style="font-size:8.5px; color: #10b981; font-weight:700; letter-spacing:0.5px;">KELUARGA BARU</span>
+                    <strong class="value" style="font-size:13px; color:#10b981; margin-top:2px;">${data.keluargaBaru || 0}</strong>
                 </div>
             </div>
 
@@ -3086,9 +3122,11 @@ function renderPclDetail(email) {
                     <span style="padding: 2px 5px; border-radius: 4px; background: rgba(219, 39, 119, 0.12); color: var(--color-revoked-k); font-size: 8.5px; font-weight:600;">REV ADM: ${sls.revokedK || 0}</span>
                     <span style="padding: 2px 5px; border-radius: 4px; background: rgba(20, 184, 166, 0.12); color: var(--color-completed-k); font-size: 8.5px; font-weight:600;">COM ADM: ${sls.completedK || 0}</span>
                 </div>
-                <div style="display: flex; gap: 4px; align-items: center;">
-                    <span style="padding: 2px 5px; border-radius: 4px; background: ${sls.usahaTutup > 0 ? 'rgba(217, 119, 6, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.usahaTutup > 0 ? '#d97706' : 'var(--text-dim)'}; border: 1px solid ${sls.usahaTutup > 0 ? 'rgba(217, 119, 6, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Usaha Tutup"><i class="ri-store-2-line"></i> ${sls.usahaTutup || 0}</span>
-                    <span style="padding: 2px 5px; border-radius: 4px; background: ${sls.usahaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.usahaTidakDitemukan > 0 ? '#dc2626' : 'var(--text-dim)'}; border: 1px solid ${sls.usahaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Usaha Tidak Ditemukan"><i class="ri-map-pin-user-line"></i> ${sls.usahaTidakDitemukan || 0}</span>
+                <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
+                    <span onclick="alert('Wadah catatan Usaha Tutup untuk SLS ini. (Menunggu URL sheet)')" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.usahaTutup > 0 ? 'rgba(217, 119, 6, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.usahaTutup > 0 ? '#d97706' : 'var(--text-dim)'}; border: 1px solid ${sls.usahaTutup > 0 ? 'rgba(217, 119, 6, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Usaha Tutup"><i class="ri-store-2-line"></i> ${sls.usahaTutup || 0}</span>
+                    <span onclick="alert('Wadah catatan Usaha Tidak Ditemukan untuk SLS ini. (Menunggu URL sheet)')" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.usahaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.usahaTidakDitemukan > 0 ? '#dc2626' : 'var(--text-dim)'}; border: 1px solid ${sls.usahaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Usaha Tidak Ditemukan"><i class="ri-store-3-line"></i> ${sls.usahaTidakDitemukan || 0}</span>
+                    <span onclick="alert('Wadah catatan Keluarga Tidak Ditemukan untuk SLS ini. (Menunggu URL sheet)')" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.keluargaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.keluargaTidakDitemukan > 0 ? '#dc2626' : 'var(--text-dim)'}; border: 1px solid ${sls.keluargaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Keluarga Tidak Ditemukan"><i class="ri-home-4-line"></i> ${sls.keluargaTidakDitemukan || 0}</span>
+                    <span onclick="alert('Wadah catatan Keluarga Baru untuk SLS ini. (Menunggu URL sheet)')" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.keluargaBaru > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.keluargaBaru > 0 ? '#10b981' : 'var(--text-dim)'}; border: 1px solid ${sls.keluargaBaru > 0 ? 'rgba(16, 185, 129, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Keluarga Baru"><i class="ri-user-add-line"></i> ${sls.keluargaBaru || 0}</span>
                 </div>
             </div>
         `;

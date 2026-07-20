@@ -20,15 +20,15 @@
   --text-body  : #1c1c22;
   --text-muted : #4a4a52;
   --text-dim   : #86868b;
-  --color-open      : #4f46e5;
-  --color-draft     : #7c3aed;
-  --color-submitted : #0284c7;
-  --color-rejected  : #e11d48;
-  --color-revoked   : #d97706;
-  --color-approved  : #059669;
-  --color-rejected-k: #f43f5e;
-  --color-edited-k  : #8b5cf6;
-  --color-revoked-k : #db2777;
+  --color-open      : #94a3b8;
+  --color-draft     : #a855f7;
+  --color-submitted : #3b82f6;
+  --color-rejected  : #ef4444;
+  --color-revoked   : #f97316;
+  --color-approved  : #10b981;
+  --color-rejected-k: #be123c;
+  --color-edited-k  : #eab308;
+  --color-revoked-k : #8b5cf6;
   --color-completed-k: #14b8a6;
   --color-total     : #4338ca;
   --shadow-card : 0 8px 24px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.03);
@@ -308,6 +308,18 @@ body.light-theme {
 .status-revoked    { border-left-color:var(--color-revoked); }
 .status-revoked h3 { color:var(--color-revoked); }
 .status-revoked .indicator-dot { background:var(--color-revoked); }
+.status-rejected-kab { border-left-color:var(--color-rejected-k); }
+.status-rejected-kab h3 { color:var(--color-rejected-k); }
+.status-rejected-kab .indicator-dot { background:var(--color-rejected-k); }
+.status-edited-kab { border-left-color:var(--color-edited-k); }
+.status-edited-kab h3 { color:var(--color-edited-k); }
+.status-edited-kab .indicator-dot { background:var(--color-edited-k); }
+.status-revoked-kab { border-left-color:var(--color-revoked-k); }
+.status-revoked-kab h3 { color:var(--color-revoked-k); }
+.status-revoked-kab .indicator-dot { background:var(--color-revoked-k); }
+.status-completed-kab { border-left-color:var(--color-completed-k); }
+.status-completed-kab h3 { color:var(--color-completed-k); }
+.status-completed-kab .indicator-dot { background:var(--color-completed-k); }
 
 /* ----------------------------------------------------------------
    CHARTS
