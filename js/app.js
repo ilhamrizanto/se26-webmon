@@ -837,6 +837,27 @@ function processAllData() {
         kc.revokedK += item.revokedK;
         kc.completedK += item.completedK;
         kc.slsCount++;
+
+        // Status Aggregate
+        p.usahaTutup = (p.usahaTutup || 0) + (item.suTutup || 0);
+        p.usahaTidakDitemukan = (p.usahaTidakDitemukan || 0) + (item.suTdkDitemukan || 0);
+        p.keluargaBaru = (p.keluargaBaru || 0) + (item.skKeluargaBaru || 0);
+        p.keluargaTidakDitemukan = (p.keluargaTidakDitemukan || 0) + (item.skTdkDitemukan || 0);
+
+        pm.usahaTutup = (pm.usahaTutup || 0) + (item.suTutup || 0);
+        pm.usahaTidakDitemukan = (pm.usahaTidakDitemukan || 0) + (item.suTdkDitemukan || 0);
+        pm.keluargaBaru = (pm.keluargaBaru || 0) + (item.skKeluargaBaru || 0);
+        pm.keluargaTidakDitemukan = (pm.keluargaTidakDitemukan || 0) + (item.skTdkDitemukan || 0);
+
+        ks.usahaTutup = (ks.usahaTutup || 0) + (item.suTutup || 0);
+        ks.usahaTidakDitemukan = (ks.usahaTidakDitemukan || 0) + (item.suTdkDitemukan || 0);
+        ks.keluargaBaru = (ks.keluargaBaru || 0) + (item.skKeluargaBaru || 0);
+        ks.keluargaTidakDitemukan = (ks.keluargaTidakDitemukan || 0) + (item.skTdkDitemukan || 0);
+
+        kc.usahaTutup = (kc.usahaTutup || 0) + (item.suTutup || 0);
+        kc.usahaTidakDitemukan = (kc.usahaTidakDitemukan || 0) + (item.suTdkDitemukan || 0);
+        kc.keluargaBaru = (kc.keluargaBaru || 0) + (item.skKeluargaBaru || 0);
+        kc.keluargaTidakDitemukan = (kc.keluargaTidakDitemukan || 0) + (item.skTdkDitemukan || 0);
     });
 
     // 5. Parse and Aggregate Anomalies
@@ -1363,6 +1384,8 @@ function renderKorwilTable() {
             <td>${kText}</td>
             <td><strong>${item.usahaTutup || 0}</strong></td>
             <td><strong>${item.usahaTidakDitemukan || 0}</strong></td>
+            <td><strong>${item.skKeluargaTdkDitemukan || item.skTdkDitemukan || 0}</strong></td>
+            <td><strong>${item.skKeluargaBaru || 0}</strong></td>
         `;
         tr.innerHTML = html;
         tbody.appendChild(tr);
@@ -3142,12 +3165,12 @@ function exportOverviewToExcel() {
     const blank = (n = 1) => { for (let i = 0; i < n; i++) ws_data.push([]); };
 
     // ── Compute totals ──────────────────────────────────
-    let globalTarget = 0, gOpen = 0, gDraft = 0, gSub = 0, gApp = 0, gRej = 0, gRev = 0, gRejK = 0, gEditK = 0;
+    let globalTarget = 0, gOpen = 0, gDraft = 0, gSub = 0, gApp = 0, gRej = 0, gRev = 0, gRejK = 0, gEditK = 0, gRevK = 0, gComK = 0;
     for (const email in petugasData) {
         const p = petugasData[email];
         globalTarget += p.totalTarget; gOpen += p.open; gDraft += p.draft;
         gSub += p.submitted; gApp += p.approved; gRej += p.rejected; gRev += p.revoked;
-        gRejK += p.rejectedK; gEditK += p.editedK;
+        gRejK += p.rejectedK; gEditK += p.editedK; gRevK += p.revokedK; gComK += p.completedK;
     }
     const tersubmit  = globalTarget - gOpen - gDraft;
     const pctDone    = globalTarget > 0 ? (tersubmit  / globalTarget * 100).toFixed(2) : 0;
@@ -3159,6 +3182,8 @@ function exportOverviewToExcel() {
     const pctRev     = globalTarget > 0 ? (gRev   / globalTarget * 100).toFixed(2) : 0;
     const pctRejK    = globalTarget > 0 ? (gRejK  / globalTarget * 100).toFixed(2) : 0;
     const pctEditK   = globalTarget > 0 ? (gEditK / globalTarget * 100).toFixed(2) : 0;
+    const pctRevK    = globalTarget > 0 ? (gRevK  / globalTarget * 100).toFixed(2) : 0;
+    const pctComK    = globalTarget > 0 ? (gComK  / globalTarget * 100).toFixed(2) : 0;
     const lastSync   = document.getElementById('last-sync')?.innerText || '-';
     const exportTime = new Date().toLocaleString('id-ID');
 
@@ -3199,13 +3224,15 @@ function exportOverviewToExcel() {
     ws_data.push(['APPROVED',  gApp,   pctApp]);
     ws_data.push(['REJ. KAB',  gRejK,  pctRejK]);
     ws_data.push(['EDT. KAB',  gEditK, pctEditK]);
+    ws_data.push(['REV. KAB',  gRevK,  pctRevK]);
+    ws_data.push(['COM. KAB',  gComK,  pctComK]);
     blank(2);
 
     // ════════════════════════════════════════════════════
     // SECTION 3 — PROGRES PETUGAS (PCL)
     // ════════════════════════════════════════════════════
     ws_data.push(['B. PROGRES PETUGAS (PCL)']);
-    ws_data.push(['Nama Petugas', 'PJ Kecamatan', 'Total Target', 'Tersubmit', '% Tersubmit', 'Submitted', 'Approved', 'Rejected', 'Revoked', 'Rej Kab', 'Edt Kab', 'Draft', 'Open', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan']);
+    ws_data.push(['Nama Petugas', 'PJ Kecamatan', 'Total Target', 'Tersubmit', '% Tersubmit', 'Open', 'Draft', 'Submitted', 'Rejected PML', 'Revoked PML', 'Approved', 'Rej Kab', 'Edt Kab', 'Rev Kab', 'Com Kab', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan', 'Keluarga Tidak Ditemukan', 'Keluarga Baru']);
     const pList = Object.values(petugasData).map(p => {
         const ts = p.totalTarget - p.open - p.draft;
         const pct = p.totalTarget > 0 ? (ts / p.totalTarget * 100).toFixed(2) : 0;
@@ -3213,7 +3240,7 @@ function exportOverviewToExcel() {
     }).sort((a, b) => b.ts - a.ts);
     pList.forEach(p => {
         const anomStr = `${p.anomaliDone || 0}/${p.anomaliTotal || 0}`;
-        ws_data.push([p.namaLengkap, p.koseka, p.totalTarget, p.ts, parseFloat(p.pct), p.submitted, p.approved, p.rejected, p.revoked, p.rejectedK, p.editedK, p.revokedK, p.completedK, p.draft, p.open, anomStr, p.usahaTutup || 0, p.usahaTidakDitemukan || 0]);
+        ws_data.push([p.namaLengkap, p.koseka, p.totalTarget, p.ts, parseFloat(p.pct), p.open, p.draft, p.submitted, p.rejected, p.revoked, p.approved, p.rejectedK, p.editedK, p.revokedK, p.completedK, anomStr, p.usahaTutup || 0, p.usahaTidakDitemukan || 0, p.keluargaTidakDitemukan || 0, p.keluargaBaru || 0]);
     });
     blank(2);
 
@@ -3221,7 +3248,7 @@ function exportOverviewToExcel() {
     // SECTION 4 — PROGRES KECAMATAN
     // ════════════════════════════════════════════════════
     ws_data.push(['C. PROGRES KECAMATAN']);
-    ws_data.push(['Kecamatan', 'Jml SLS', 'Total Target', 'Tersubmit', '% Tersubmit', 'Submitted', 'Approved', 'Rejected', 'Revoked', 'Rej Kab', 'Edt Kab', 'Draft', 'Open', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan']);
+    ws_data.push(['Kecamatan', 'Jml SLS', 'Total Target', 'Tersubmit', '% Tersubmit', 'Open', 'Draft', 'Submitted', 'Rejected PML', 'Revoked PML', 'Approved', 'Rej Kab', 'Edt Kab', 'Rev Kab', 'Com Kab', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan', 'Keluarga Tidak Ditemukan', 'Keluarga Baru']);
     const kList = Object.values(kecamatanData).map(k => {
         const ts = k.totalTarget - k.open - k.draft;
         const pct = k.totalTarget > 0 ? (ts / k.totalTarget * 100).toFixed(2) : 0;
@@ -3229,7 +3256,7 @@ function exportOverviewToExcel() {
     }).sort((a, b) => b.ts - a.ts);
     kList.forEach(k => {
         const anomStr = `${k.anomaliDone || 0}/${k.anomaliTotal || 0}`;
-        ws_data.push([k.kecamatan, k.slsCount, k.totalTarget, k.ts, parseFloat(k.pct), k.submitted, k.approved, k.rejected, k.revoked, k.rejectedK, k.editedK, k.revokedK, k.completedK, k.draft, k.open, anomStr, k.usahaTutup || 0, k.usahaTidakDitemukan || 0]);
+        ws_data.push([k.kecamatan, k.slsCount, k.totalTarget, k.ts, parseFloat(k.pct), k.open, k.draft, k.submitted, k.rejected, k.revoked, k.approved, k.rejectedK, k.editedK, k.revokedK, k.completedK, anomStr, k.usahaTutup || 0, k.usahaTidakDitemukan || 0, k.keluargaTidakDitemukan || 0, k.keluargaBaru || 0]);
     });
     blank(2);
 
@@ -3237,7 +3264,7 @@ function exportOverviewToExcel() {
     // SECTION 5 — PROGRES PJ KECAMATAN
     // ════════════════════════════════════════════════════
     ws_data.push(['D. PROGRES PJ KECAMATAN']);
-    ws_data.push(['Nama PJ Kecamatan', 'Total Target', '% Pendataan', '% Submit', '% Periksa', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan']);
+    ws_data.push(['Nama PJ Kecamatan', 'Total Target', '% Pendataan', '% Submit', '% Periksa', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan', 'Keluarga Tidak Ditemukan', 'Keluarga Baru']);
     const pjList = Object.keys(kosekaData).map(k => {
         const d = kosekaData[k];
         const total = d.totalTarget || 0;
@@ -3250,11 +3277,13 @@ function exportOverviewToExcel() {
             anomaliDone: d.anomaliDone || 0,
             anomaliTotal: d.anomaliTotal || 0,
             usahaTutup: d.usahaTutup || 0,
-            usahaTidakDitemukan: d.usahaTidakDitemukan || 0
+            usahaTidakDitemukan: d.usahaTidakDitemukan || 0,
+            keluargaTidakDitemukan: d.keluargaTidakDitemukan || 0,
+            keluargaBaru: d.keluargaBaru || 0
         };
     }).filter(Boolean).sort((a, b) => b.pendataan - a.pendataan);
     pjList.forEach(p => {
-        ws_data.push([p.name, p.total, p.pendataan, p.submit, p.approve, `${p.anomaliDone}/${p.anomaliTotal}`, p.usahaTutup, p.usahaTidakDitemukan]);
+        ws_data.push([p.name, p.total, p.pendataan, p.submit, p.approve, `${p.anomaliDone}/${p.anomaliTotal}`, p.usahaTutup, p.usahaTidakDitemukan, p.keluargaTidakDitemukan, p.keluargaBaru]);
     });
     blank(2);
 
@@ -3262,7 +3291,7 @@ function exportOverviewToExcel() {
     // SECTION 6 — PROGRES PML
     // ════════════════════════════════════════════════════
     ws_data.push(['E. PROGRES PML (PENGAWAS LAPANGAN)']);
-    ws_data.push(['Nama PML', 'Total Target', '% Pendataan', '% Submit', '% Periksa', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan']);
+    ws_data.push(['Nama PML', 'Total Target', '% Pendataan', '% Submit', '% Periksa', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan', 'Keluarga Tidak Ditemukan', 'Keluarga Baru']);
     const pmlList = Object.keys(pmlData).map(p => {
         const d = pmlData[p];
         const total = d.totalTarget || 0;
@@ -3275,11 +3304,13 @@ function exportOverviewToExcel() {
             anomaliDone: d.anomaliDone || 0,
             anomaliTotal: d.anomaliTotal || 0,
             usahaTutup: d.usahaTutup || 0,
-            usahaTidakDitemukan: d.usahaTidakDitemukan || 0
+            usahaTidakDitemukan: d.usahaTidakDitemukan || 0,
+            keluargaTidakDitemukan: d.keluargaTidakDitemukan || 0,
+            keluargaBaru: d.keluargaBaru || 0
         };
     }).filter(Boolean).sort((a, b) => b.pendataan - a.pendataan);
     pmlList.forEach(p => {
-        ws_data.push([p.name, p.total, p.pendataan, p.submit, p.approve, `${p.anomaliDone}/${p.anomaliTotal}`, p.usahaTutup, p.usahaTidakDitemukan]);
+        ws_data.push([p.name, p.total, p.pendataan, p.submit, p.approve, `${p.anomaliDone}/${p.anomaliTotal}`, p.usahaTutup, p.usahaTidakDitemukan, p.keluargaTidakDitemukan, p.keluargaBaru]);
     });
 
     // ════════════════════════════════════════════════════
@@ -3287,7 +3318,6 @@ function exportOverviewToExcel() {
     // ════════════════════════════════════════════════════
     const ws = XLSX.utils.aoa_to_sheet(ws_data);
 
-    // Column widths
     ws['!cols'] = [
         { wch: 38 }, // A
         { wch: 20 }, // B
@@ -3298,18 +3328,24 @@ function exportOverviewToExcel() {
         { wch: 12 }, // G
         { wch: 12 }, // H
         { wch: 12 }, // I
-        { wch: 10 }, // J
-        { wch: 10 }, // K
-        { wch: 15 }, // L
-        { wch: 15 }, // M
-        { wch: 18 }, // N
+        { wch: 12 }, // J
+        { wch: 12 }, // K
+        { wch: 10 }, // L
+        { wch: 10 }, // M
+        { wch: 10 }, // N
+        { wch: 10 }, // O
+        { wch: 15 }, // P
+        { wch: 15 }, // Q
+        { wch: 22 }, // R
+        { wch: 24 }, // S
+        { wch: 15 }, // T
     ];
 
-    // Merge title cells A1:N1
+    // Merge title cells A1:T1
     ws['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 13 } },
-        { s: { r: 1, c: 0 }, e: { r: 1, c: 13 } },
-        { s: { r: 2, c: 0 }, e: { r: 2, c: 13 } },
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 19 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 19 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 19 } },
     ];
 
     // Apply cell styles using xlsx-js-style
