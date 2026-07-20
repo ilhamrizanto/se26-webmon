@@ -1337,16 +1337,16 @@ function renderKorwilTable() {
         html += `
             <td><strong>${item.namaLengkap}</strong></td>
             <td>${item.totalTarget}</td>
-            <td><span class="badge-dot open"></span> ${item.open}</td>
-            <td><span class="badge-dot draft"></span> ${item.draft}</td>
-            <td><span class="badge-dot submitted"></span> ${item.submitted}</td>
-            <td><span class="badge-dot rejected"></span> ${item.rejected || 0}</td>
-            <td><span class="badge-dot revoked"></span> ${item.revoked || 0}</td>
-            <td><span class="badge-dot approved"></span> ${item.approved}</td>
-            <td><span class="badge-dot" style="background:#f43f5e; box-shadow: 0 0 6px #f43f5e;"></span> ${item.rejectedK || 0}</td>
-            <td><span class="badge-dot" style="background:#8b5cf6; box-shadow: 0 0 6px #8b5cf6;"></span> ${item.editedK || 0}</td>
-            <td><span class="badge-dot" style="background:#db2777; box-shadow: 0 0 6px #db2777;"></span> ${item.revokedK || 0}</td>
-            <td><span class="badge-dot" style="background:#14b8a6; box-shadow: 0 0 6px #14b8a6;"></span> ${item.completedK || 0}</td>
+            <td class="col-compact"><span class="badge-dot open"></span> ${item.open}</td>
+            <td class="col-compact"><span class="badge-dot draft"></span> ${item.draft}</td>
+            <td class="col-compact"><span class="badge-dot submitted"></span> ${item.submitted}</td>
+            <td class="col-compact"><span class="badge-dot rejected"></span> ${item.rejected || 0}</td>
+            <td class="col-compact"><span class="badge-dot revoked"></span> ${item.revoked || 0}</td>
+            <td class="col-compact"><span class="badge-dot approved"></span> ${item.approved}</td>
+            <td class="col-compact"><span class="badge-dot" style="background:#f43f5e; box-shadow: 0 0 6px #f43f5e;"></span> ${item.rejectedK || 0}</td>
+            <td class="col-compact"><span class="badge-dot" style="background:#8b5cf6; box-shadow: 0 0 6px #8b5cf6;"></span> ${item.editedK || 0}</td>
+            <td class="col-compact"><span class="badge-dot" style="background:#db2777; box-shadow: 0 0 6px #db2777;"></span> ${item.revokedK || 0}</td>
+            <td class="col-compact"><span class="badge-dot" style="background:#14b8a6; box-shadow: 0 0 6px #14b8a6;"></span> ${item.completedK || 0}</td>
             <td>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <div class="progress-bar-thin" style="width:60px; margin:0;"><div class="progress-fill-thin" style="background:${colorSubmitted}; width:${pctSubmitted}%"></div></div>
@@ -1385,16 +1385,16 @@ function renderPetugasTable() {
             <td>${p.pml}</td>
             <td>${p.koseka}</td>
             <td>${p.totalTarget}</td>
-            <td><span class="badge-dot open"></span> ${p.open}</td>
-            <td><span class="badge-dot draft"></span> ${p.draft}</td>
-            <td><span class="badge-dot submitted"></span> ${p.submitted}</td>
-            <td><span class="badge-dot rejected"></span> ${p.rejected}</td>
-            <td><span class="badge-dot revoked"></span> ${p.revoked}</td>
-            <td><span class="badge-dot approved"></span> ${p.approved}</td>
-            <td><span class="badge-dot" style="background:#f43f5e; box-shadow: 0 0 6px #f43f5e;"></span> ${p.rejectedK}</td>
-            <td><span class="badge-dot" style="background:#8b5cf6; box-shadow: 0 0 6px #8b5cf6;"></span> ${p.editedK}</td>
-            <td><span class="badge-dot" style="background:#db2777; box-shadow: 0 0 6px #db2777;"></span> ${p.revokedK}</td>
-            <td><span class="badge-dot" style="background:#14b8a6; box-shadow: 0 0 6px #14b8a6;"></span> ${p.completedK}</td>
+            <td class="col-compact"><span class="badge-dot open"></span> ${p.open}</td>
+            <td class="col-compact"><span class="badge-dot draft"></span> ${p.draft}</td>
+            <td class="col-compact"><span class="badge-dot submitted"></span> ${p.submitted}</td>
+            <td class="col-compact"><span class="badge-dot rejected"></span> ${p.rejected}</td>
+            <td class="col-compact"><span class="badge-dot revoked"></span> ${p.revoked}</td>
+            <td class="col-compact"><span class="badge-dot approved"></span> ${p.approved}</td>
+            <td class="col-compact"><span class="badge-dot" style="background:#f43f5e; box-shadow: 0 0 6px #f43f5e;"></span> ${p.rejectedK}</td>
+            <td class="col-compact"><span class="badge-dot" style="background:#8b5cf6; box-shadow: 0 0 6px #8b5cf6;"></span> ${p.editedK}</td>
+            <td class="col-compact"><span class="badge-dot" style="background:#db2777; box-shadow: 0 0 6px #db2777;"></span> ${p.revokedK}</td>
+            <td class="col-compact"><span class="badge-dot" style="background:#14b8a6; box-shadow: 0 0 6px #14b8a6;"></span> ${p.completedK}</td>
             <td>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <div class="progress-bar-thin" style="width:60px; margin:0;"><div class="progress-fill-thin" style="background:${getProgressBarColor(pct)}; width:${pct}%"></div></div>

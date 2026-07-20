@@ -350,6 +350,10 @@ body.light-theme {
 .premium-table tbody tr:hover td { background:rgba(99,102,241,0.04); color:var(--text-title); }
 .premium-table td strong { color:var(--text-title); font-weight:600; }
 
+.premium-table th.col-compact-header { padding: 6px 4px; white-space: normal; text-align: center; width: 45px; max-width: 55px; font-size: 9px; line-height: 1.2; }
+.premium-table td.col-compact { padding: 6px 4px; white-space: nowrap; text-align: center; font-size: 11px; }
+.premium-table td.col-compact .badge-dot { justify-content: center; }
+
 .badge-dot { display:inline-flex; align-items:center; gap:5px; font-size:11px; }
 .badge-dot::before { content:''; display:block; width:6px; height:6px; border-radius:50%; flex-shrink:0; }
 .badge-dot.open::before      { background:var(--color-open); }
