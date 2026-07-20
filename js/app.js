@@ -10,6 +10,7 @@ const SHEET_STATUS_KELUARGA_URL = `https://docs.google.com/spreadsheets/d/${SPRE
 
 const SPREADSHEET_ID_CATATAN = "1hfzqBgXF9yAYaB7vP-g-cUSNVfXJmrqXk0Ue9FUveo8";
 const SHEET_CATATAN_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID_CATATAN}/gviz/tq?tqx=out:csv&sheet=Mirror%20Status%20Usaha`;
+const SHEET_CATATAN_KELUARGA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID_CATATAN}/gviz/tq?tqx=out:csv&sheet=Mirror%20Status%20Keluarga`;
 
 // Global Data State
 let rawDataDB = [];
@@ -21,7 +22,9 @@ let rawAnomaliKeluargaRows = [];
 let rawStatusUsahaRows = [];
 let rawStatusKeluargaRows = [];
 let rawCatatanRows = [];
-let catatanMap = {}; // keyed by slsId (16-digit kode)
+let rawCatatanKeluargaRows = [];
+let catatanMap = {}; // keyed by slsId for Status Usaha
+let catatanKeluargaMap = {}; // keyed by slsId for Status Keluarga
 
 let slsAssignments = []; // Unified data array
 let sortPjDesc = true;
@@ -487,6 +490,27 @@ function parseCatatan(rawRows) {
     return map;
 }
 
+function parseCatatanKeluarga(rawRows) {
+    const map = {};
+    if (!rawRows || rawRows.length < 2) return map;
+    
+    // Row 0 header: Kode, Keluarga Baru, Tidak Ditemukan, Kecamatan, Desa, Nama SLS, Catatan Tidak Ditemukan, Catatan Baru
+    for (let i = 1; i < rawRows.length; i++) {
+        const row = rawRows[i];
+        if (!row || row.length === 0) continue;
+        const kode = String(row[0] || '').trim();
+        if (kode.length !== 16 || !/^\d+$/.test(kode)) continue;
+        
+        const noteTDK = String(row[6] || '').trim();
+        const noteBaru = String(row[7] || '').trim();
+        
+        if (noteTDK || noteBaru) {
+            map[kode] = { catatanTDK: noteTDK, catatanBaru: noteBaru };
+        }
+    }
+    return map;
+}
+
 function cleanName(name) {
     if (!name) return "";
     return String(name).toLowerCase()
@@ -528,8 +552,9 @@ function initApp() {
         fetchCSVRaw(SHEET_ANOMALI_KELUARGA_URL),
         fetchCSVRaw(SHEET_STATUS_USAHA_URL),
         fetchCSVRaw(SHEET_STATUS_KELUARGA_URL),
-        fetchCSVRaw(SHEET_CATATAN_URL).catch(() => []) // graceful
-    ]).then(([dbData, namaData, slsDataRaw, korwilData, rawAnomaliUsaha, rawAnomaliKeluarga, rawStatusUsaha, rawStatusKeluarga, rawCatatan]) => {
+        fetchCSVRaw(SHEET_CATATAN_URL).catch(() => []), // graceful
+        fetchCSVRaw(SHEET_CATATAN_KELUARGA_URL).catch(() => []) // graceful
+    ]).then(([dbData, namaData, slsDataRaw, korwilData, rawAnomaliUsaha, rawAnomaliKeluarga, rawStatusUsaha, rawStatusKeluarga, rawCatatan, rawCatatanKel]) => {
         rawDataDB = dbData;
         rawNamaData = namaData;
         rawSlsData = slsDataRaw;
@@ -539,7 +564,9 @@ function initApp() {
         rawStatusUsahaRows = rawStatusUsaha;
         rawStatusKeluargaRows = rawStatusKeluarga;
         rawCatatanRows = rawCatatan || [];
+        rawCatatanKeluargaRows = rawCatatanKel || [];
         catatanMap = parseCatatan(rawCatatanRows);
+        catatanKeluargaMap = parseCatatanKeluarga(rawCatatanKeluargaRows);
         
         console.log("Debug Anomaly Sheets Loaded:");
         console.log("Raw Usaha rows count:", rawAnomaliUsahaRows ? rawAnomaliUsahaRows.length : 0);
@@ -698,6 +725,9 @@ function processAllData() {
         const statusUsaha    = statusUsahaMap[slsIdRaw]    || { prelist: 0, ditemukan: 0, tutup: 0, ganda: 0, tidakDitemukan: 0, baru: 0, totalHasil: 0 };
         const statusKeluarga = statusKeluargaMap[slsIdRaw] || { prelist: 0, ditemukan: 0, keluargaBaru: 0, meninggal: 0, tdkEligible: 0, tdkDapatDitemui: 0, tdkDitemukan: 0, keluargaKhusus: 0, totalHasil: 0 };
 
+        const catUsaha = catatanMap[slsIdRaw] || {};
+        const catKel = catatanKeluargaMap[slsIdRaw] || {};
+
         slsAssignments.push({
             slsId: slsIdRaw,
             nmsls: sls.nmsls,
@@ -728,7 +758,12 @@ function processAllData() {
             skTdkDapatDitemui: statusKeluarga.tdkDapatDitemui,
             skTdkDitemukan:    statusKeluarga.tdkDitemukan,
             skKeluargaKhusus:  statusKeluarga.keluargaKhusus,
-            skTotalHasil:      statusKeluarga.totalHasil
+            skTotalHasil:      statusKeluarga.totalHasil,
+            // Catatan
+            catUsahaTutup:     catUsaha.catatanTutup || '',
+            catUsahaTdk:       catUsaha.catatanTDK || '',
+            catKelTdk:         catKel.catatanTDK || '',
+            catKelBaru:        catKel.catatanBaru || ''
         });
 
     });
@@ -999,7 +1034,6 @@ function buildStatusUsahaList() {
         if (seen[item.slsId]) return;
         seen[item.slsId] = true;
         if ((item.suTutup || 0) === 0 && (item.suTdkDitemukan || 0) === 0) return;
-        const catatan = catatanMap[item.slsId] || {};
         list.push({
             slsId:          item.slsId,
             nmsls:          item.nmsls,
@@ -1015,8 +1049,8 @@ function buildStatusUsahaList() {
             tidakDitemukan: item.suTdkDitemukan || 0,
             baru:           item.suBaru || 0,
             totalHasil:     item.suTotalHasil || 0,
-            catatanTutup:   catatan.catatanTutup || '',
-            catatanTDK:     catatan.catatanTDK || ''
+            catatanTutup:   item.catUsahaTutup || '',
+            catatanTDK:     item.catUsahaTdk || ''
         });
     });
     window.statusUsahaList = list;
@@ -1046,8 +1080,8 @@ function buildStatusKeluargaList() {
             tdkDitemukan:      item.skTdkDitemukan     || 0,
             keluargaKhusus:    item.skKeluargaKhusus   || 0,
             totalHasil:        item.skTotalHasil       || 0,
-            catatanBaru:       '', // Placeholders for family notes
-            catatanTDK:        ''
+            catatanBaru:       item.catKelBaru         || '',
+            catatanTDK:        item.catKelTdk          || ''
         });
     });
     window.statusKeluargaList = list;
@@ -3123,10 +3157,10 @@ function renderPclDetail(email) {
                     <span style="padding: 2px 5px; border-radius: 4px; background: rgba(20, 184, 166, 0.12); color: var(--color-completed-k); font-size: 8.5px; font-weight:600;">COM ADM: ${sls.completedK || 0}</span>
                 </div>
                 <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
-                    <span onclick="alert('Wadah catatan Usaha Tutup untuk SLS ini. (Menunggu URL sheet)')" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.usahaTutup > 0 ? 'rgba(217, 119, 6, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.usahaTutup > 0 ? '#d97706' : 'var(--text-dim)'}; border: 1px solid ${sls.usahaTutup > 0 ? 'rgba(217, 119, 6, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Usaha Tutup"><i class="ri-store-2-line"></i> ${sls.usahaTutup || 0}</span>
-                    <span onclick="alert('Wadah catatan Usaha Tidak Ditemukan untuk SLS ini. (Menunggu URL sheet)')" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.usahaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.usahaTidakDitemukan > 0 ? '#dc2626' : 'var(--text-dim)'}; border: 1px solid ${sls.usahaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Usaha Tidak Ditemukan"><i class="ri-store-3-line"></i> ${sls.usahaTidakDitemukan || 0}</span>
-                    <span onclick="alert('Wadah catatan Keluarga Tidak Ditemukan untuk SLS ini. (Menunggu URL sheet)')" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.keluargaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.keluargaTidakDitemukan > 0 ? '#dc2626' : 'var(--text-dim)'}; border: 1px solid ${sls.keluargaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Keluarga Tidak Ditemukan"><i class="ri-home-4-line"></i> ${sls.keluargaTidakDitemukan || 0}</span>
-                    <span onclick="alert('Wadah catatan Keluarga Baru untuk SLS ini. (Menunggu URL sheet)')" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.keluargaBaru > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.keluargaBaru > 0 ? '#10b981' : 'var(--text-dim)'}; border: 1px solid ${sls.keluargaBaru > 0 ? 'rgba(16, 185, 129, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Keluarga Baru"><i class="ri-user-add-line"></i> ${sls.keluargaBaru || 0}</span>
+                    <span onclick="alert(decodeURIComponent('${encodeURIComponent(sls.catUsahaTutup || 'Tidak ada catatan Usaha Tutup')}'))" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.usahaTutup > 0 ? 'rgba(217, 119, 6, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.usahaTutup > 0 ? '#d97706' : 'var(--text-dim)'}; border: 1px solid ${sls.usahaTutup > 0 ? 'rgba(217, 119, 6, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Klik untuk lihat catatan"><i class="ri-store-2-line"></i> ${sls.usahaTutup || 0}</span>
+                    <span onclick="alert(decodeURIComponent('${encodeURIComponent(sls.catUsahaTdk || 'Tidak ada catatan Usaha Tidak Ditemukan')}'))" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.usahaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.usahaTidakDitemukan > 0 ? '#dc2626' : 'var(--text-dim)'}; border: 1px solid ${sls.usahaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Klik untuk lihat catatan"><i class="ri-store-3-line"></i> ${sls.usahaTidakDitemukan || 0}</span>
+                    <span onclick="alert(decodeURIComponent('${encodeURIComponent(sls.catKelTdk || 'Tidak ada catatan Keluarga Tidak Ditemukan')}'))" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.keluargaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.keluargaTidakDitemukan > 0 ? '#dc2626' : 'var(--text-dim)'}; border: 1px solid ${sls.keluargaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Klik untuk lihat catatan"><i class="ri-home-4-line"></i> ${sls.keluargaTidakDitemukan || 0}</span>
+                    <span onclick="alert(decodeURIComponent('${encodeURIComponent(sls.catKelBaru || 'Tidak ada catatan Keluarga Baru')}'))" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.keluargaBaru > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.keluargaBaru > 0 ? '#10b981' : 'var(--text-dim)'}; border: 1px solid ${sls.keluargaBaru > 0 ? 'rgba(16, 185, 129, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Klik untuk lihat catatan"><i class="ri-user-add-line"></i> ${sls.keluargaBaru || 0}</span>
                 </div>
             </div>
         `;
