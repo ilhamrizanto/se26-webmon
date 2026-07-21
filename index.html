@@ -374,7 +374,7 @@
                                     <span style="color: var(--text-dim); font-size: 20px; font-weight: 300;">/</span>
                                     <span id="anom-usaha-pending" style="font-family: 'Outfit', sans-serif; font-size: 28px; font-weight: 700; color: #ef4444; line-height: 1;">0</span>
                                 </div>
-                                <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">Selesai / Belum Tindak Lanjut</div>
+                                <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">Sudah / Belum Ditindaklanjuti</div>
                                 
                                 <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 8px; margin-top: 10px;">
                                     <span style="color: var(--text-muted); font-size: 12px; font-weight: 600;">Total Anomali</span>
@@ -396,7 +396,7 @@
                                     <span style="color: var(--text-dim); font-size: 20px; font-weight: 300;">/</span>
                                     <span id="anom-keluarga-pending" style="font-family: 'Outfit', sans-serif; font-size: 28px; font-weight: 700; color: #ef4444; line-height: 1;">0</span>
                                 </div>
-                                <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">Selesai / Belum Tindak Lanjut</div>
+                                <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">Sudah / Belum Ditindaklanjuti</div>
                                 
                                 <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 8px; margin-top: 10px;">
                                     <span style="color: var(--text-muted); font-size: 12px; font-weight: 600;">Total Anomali</span>
@@ -768,8 +768,8 @@
                             </div>
                             <div class="anom-status-group">
                                 <button class="anom-status-btn active" data-status="semua">Semua</button>
-                                <button class="anom-status-btn" data-status="belum"><i class="ri-time-line"></i> Belum Selesai</button>
-                                <button class="anom-status-btn" data-status="selesai"><i class="ri-checkbox-circle-line"></i> Selesai</button>
+                                <button class="anom-status-btn" data-status="belum"><i class="ri-time-line"></i> Belum Ditindaklanjuti</button>
+                                <button class="anom-status-btn" data-status="selesai"><i class="ri-checkbox-circle-line"></i> Sudah Ditindaklanjuti</button>
                             </div>
                             <button id="anom-filter-clear" class="anom-clear-btn" title="Reset semua filter"><i class="ri-refresh-line"></i></button>
                         </div>
@@ -787,10 +787,6 @@
                                     <label><i class="ri-user-smile-line"></i> PCL</label>
                                     <select id="anom-filter-pcl"><option value="">Semua</option></select>
                                 </div>
-                                <div class="anom-filter-group">
-                                    <label><i class="ri-refresh-line"></i> Waktu Sinkron</label>
-                                    <select id="anom-filter-sync"><option value="">Semua</option></select>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -802,6 +798,11 @@
                             <div class="anomali-panel-header">
                                 <span><i class="ri-store-2-line"></i> Anomali Usaha</span>
                                 <span class="badge-count" id="count-anomali-usaha">0</span>
+                                <span style="flex: 1;"></span>
+                                <div class="panel-search-wrap">
+                                    <i class="ri-search-line"></i>
+                                    <input type="text" id="search-anomali-usaha" placeholder="Cari nama usaha..." autocomplete="off">
+                                </div>
                             </div>
                             <div class="anomali-panel-body" id="list-anomali-usaha">
                                 <div class="anom-empty"><i class="ri-inbox-2-line"></i><p>Pilih tab Anomali untuk memuat data</p></div>
@@ -813,6 +814,11 @@
                             <div class="anomali-panel-header anomali-panel-header-keluarga">
                                 <span><i class="ri-home-heart-line"></i> Anomali Keluarga</span>
                                 <span class="badge-count" id="count-anomali-keluarga">0</span>
+                                <span style="flex: 1;"></span>
+                                <div class="panel-search-wrap">
+                                    <i class="ri-search-line"></i>
+                                    <input type="text" id="search-anomali-keluarga" placeholder="Cari nama keluarga..." autocomplete="off">
+                                </div>
                             </div>
                             <div class="anomali-panel-body" id="list-anomali-keluarga">
                                 <div class="anom-empty"><i class="ri-inbox-2-line"></i><p>Pilih tab Anomali untuk memuat data</p></div>
@@ -1022,6 +1028,6 @@
     </div>
 
     <!-- Custom JS script -->
-    <script src="js/app.js?v=98"></script>
+    <script src="js/app.js?v=106"></script>
 </body>
 </html>
