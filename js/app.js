@@ -501,11 +501,19 @@ function parseCatatanKeluarga(rawRows) {
         const kode = String(row[0] || '').trim();
         if (kode.length !== 16 || !/^\d+$/.test(kode)) continue;
         
+        const countBaru = parseInt(String(row[1] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+        const countTDK = parseInt(String(row[2] || '0').replace(/[^0-9]/g, ''), 10) || 0;
+        
         const noteTDK = String(row[6] || '').trim();
         const noteBaru = String(row[7] || '').trim();
         
-        if (noteTDK || noteBaru) {
-            map[kode] = { catatanTDK: noteTDK, catatanBaru: noteBaru };
+        if (noteTDK || noteBaru || countBaru > 0 || countTDK > 0) {
+            map[kode] = { 
+                catatanTDK: noteTDK, 
+                catatanBaru: noteBaru,
+                countBaru: countBaru,
+                countTDK: countTDK
+            };
         }
     }
     return map;
@@ -752,11 +760,11 @@ function processAllData() {
             // Status Keluarga
             skPrelist:         statusKeluarga.prelist,
             skDitemukan:       statusKeluarga.ditemukan,
-            skKeluargaBaru:    statusKeluarga.keluargaBaru,
+            skKeluargaBaru:    (catKel.countBaru !== undefined) ? catKel.countBaru : statusKeluarga.keluargaBaru,
             skMeninggal:       statusKeluarga.meninggal,
             skTdkEligible:     statusKeluarga.tdkEligible,
             skTdkDapatDitemui: statusKeluarga.tdkDapatDitemui,
-            skTdkDitemukan:    statusKeluarga.tdkDitemukan,
+            skTdkDitemukan:    (catKel.countTDK !== undefined) ? catKel.countTDK : statusKeluarga.tdkDitemukan,
             skKeluargaKhusus:  statusKeluarga.keluargaKhusus,
             skTotalHasil:      statusKeluarga.totalHasil,
             // Catatan
@@ -2787,7 +2795,7 @@ function renderHierarchyView() {
             <div class="hierarchy-card-header" style="margin-bottom: 4px;">
                 <span class="hierarchy-card-title" title="${koseka}">${koseka}</span>
             </div>
-            ${makeBadgesRow(data.anomaliDone || 0, data.anomaliTotal || 0, data.usahaTutup || 0, data.usahaTidakDitemukan || 0)}
+            ${makeBadgesRow(data.anomaliDone || 0, data.anomaliTotal || 0, data.usahaTutup || 0, data.usahaTidakDitemukan || 0, data.keluargaTidakDitemukan || 0, data.keluargaBaru || 0)}
             <div style="display:flex; flex-direction:column; gap:4px; margin-bottom: 8px;">
                 <div>
                     <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
@@ -2873,7 +2881,7 @@ function renderPmlList(kosekaName) {
             <div class="hierarchy-card-header" style="margin-bottom: 4px;">
                 <span class="hierarchy-card-title" title="${pml}">${pml}</span>
             </div>
-            ${makeBadgesRow(data.anomaliDone || 0, data.anomaliTotal || 0, data.usahaTutup || 0, data.usahaTidakDitemukan || 0)}
+            ${makeBadgesRow(data.anomaliDone || 0, data.anomaliTotal || 0, data.usahaTutup || 0, data.usahaTidakDitemukan || 0, data.keluargaTidakDitemukan || 0, data.keluargaBaru || 0)}
             <div style="display:flex; flex-direction:column; gap:4px; margin-bottom: 8px;">
                 <div>
                     <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
@@ -2953,7 +2961,7 @@ function renderPclList(pmlName) {
             <div class="hierarchy-card-header" style="margin-bottom: 4px;">
                 <span class="hierarchy-card-title" title="${data.namaLengkap}">${data.namaLengkap}</span>
             </div>
-            ${makeBadgesRow(data.anomaliDone || 0, data.anomaliTotal || 0, data.usahaTutup || 0, data.usahaTidakDitemukan || 0)}
+            ${makeBadgesRow(data.anomaliDone || 0, data.anomaliTotal || 0, data.usahaTutup || 0, data.usahaTidakDitemukan || 0, data.keluargaTidakDitemukan || 0, data.keluargaBaru || 0)}
             <div style="display:flex; flex-direction:column; gap:4px; margin-bottom: 8px;">
                 <div>
                     <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
@@ -3157,10 +3165,10 @@ function renderPclDetail(email) {
                     <span style="padding: 2px 5px; border-radius: 4px; background: rgba(20, 184, 166, 0.12); color: var(--color-completed-k); font-size: 8.5px; font-weight:600;">COM ADM: ${sls.completedK || 0}</span>
                 </div>
                 <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
-                    <span onclick="alert(decodeURIComponent('${encodeURIComponent(sls.catUsahaTutup || 'Tidak ada catatan Usaha Tutup')}'))" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.usahaTutup > 0 ? 'rgba(217, 119, 6, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.usahaTutup > 0 ? '#d97706' : 'var(--text-dim)'}; border: 1px solid ${sls.usahaTutup > 0 ? 'rgba(217, 119, 6, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Klik untuk lihat catatan"><i class="ri-store-2-line"></i> ${sls.usahaTutup || 0}</span>
-                    <span onclick="alert(decodeURIComponent('${encodeURIComponent(sls.catUsahaTdk || 'Tidak ada catatan Usaha Tidak Ditemukan')}'))" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.usahaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.usahaTidakDitemukan > 0 ? '#dc2626' : 'var(--text-dim)'}; border: 1px solid ${sls.usahaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Klik untuk lihat catatan"><i class="ri-store-3-line"></i> ${sls.usahaTidakDitemukan || 0}</span>
-                    <span onclick="alert(decodeURIComponent('${encodeURIComponent(sls.catKelTdk || 'Tidak ada catatan Keluarga Tidak Ditemukan')}'))" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.keluargaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.keluargaTidakDitemukan > 0 ? '#dc2626' : 'var(--text-dim)'}; border: 1px solid ${sls.keluargaTidakDitemukan > 0 ? 'rgba(220, 38, 38, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Klik untuk lihat catatan"><i class="ri-home-4-line"></i> ${sls.keluargaTidakDitemukan || 0}</span>
-                    <span onclick="alert(decodeURIComponent('${encodeURIComponent(sls.catKelBaru || 'Tidak ada catatan Keluarga Baru')}'))" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.keluargaBaru > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.keluargaBaru > 0 ? '#10b981' : 'var(--text-dim)'}; border: 1px solid ${sls.keluargaBaru > 0 ? 'rgba(16, 185, 129, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Klik untuk lihat catatan"><i class="ri-user-add-line"></i> ${sls.keluargaBaru || 0}</span>
+                    <span onclick="alert(decodeURIComponent('${encodeURIComponent(sls.catUsahaTutup || 'Tidak ada catatan Usaha Tutup')}'))" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.suTutup > 0 ? 'rgba(217, 119, 6, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.suTutup > 0 ? '#d97706' : 'var(--text-dim)'}; border: 1px solid ${sls.suTutup > 0 ? 'rgba(217, 119, 6, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Klik untuk lihat catatan"><i class="ri-store-2-line"></i> ${sls.suTutup || 0}</span>
+                    <span onclick="alert(decodeURIComponent('${encodeURIComponent(sls.catUsahaTdk || 'Tidak ada catatan Usaha Tidak Ditemukan')}'))" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.suTdkDitemukan > 0 ? 'rgba(220, 38, 38, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.suTdkDitemukan > 0 ? '#dc2626' : 'var(--text-dim)'}; border: 1px solid ${sls.suTdkDitemukan > 0 ? 'rgba(220, 38, 38, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Klik untuk lihat catatan"><i class="ri-store-3-line"></i> ${sls.suTdkDitemukan || 0}</span>
+                    <span onclick="alert(decodeURIComponent('${encodeURIComponent(sls.catKelTdk || 'Tidak ada catatan Keluarga Tidak Ditemukan')}'))" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.skTdkDitemukan > 0 ? 'rgba(220, 38, 38, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.skTdkDitemukan > 0 ? '#dc2626' : 'var(--text-dim)'}; border: 1px solid ${sls.skTdkDitemukan > 0 ? 'rgba(220, 38, 38, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Klik untuk lihat catatan"><i class="ri-home-4-line"></i> ${sls.skTdkDitemukan || 0}</span>
+                    <span onclick="alert(decodeURIComponent('${encodeURIComponent(sls.catKelBaru || 'Tidak ada catatan Keluarga Baru')}'))" style="cursor:pointer; padding: 2px 5px; border-radius: 4px; background: ${sls.skKeluargaBaru > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.03)'}; color: ${sls.skKeluargaBaru > 0 ? '#10b981' : 'var(--text-dim)'}; border: 1px solid ${sls.skKeluargaBaru > 0 ? 'rgba(16, 185, 129, 0.25)' : 'rgba(255, 255, 255, 0.05)'}; font-size: 9px; font-weight:700; display: inline-flex; align-items: center; gap: 3px;" title="Klik untuk lihat catatan"><i class="ri-user-add-line"></i> ${sls.skKeluargaBaru || 0}</span>
                 </div>
             </div>
         `;
@@ -3304,15 +3312,18 @@ function exportOverviewToExcel() {
     // SECTION 3 — PROGRES PETUGAS (PCL)
     // ════════════════════════════════════════════════════
     ws_data.push(['B. PROGRES PETUGAS (PCL)']);
-    ws_data.push(['Nama Petugas', 'PJ Kecamatan', 'Total Target', 'Tersubmit', '% Tersubmit', 'Open', 'Draft', 'Submitted', 'Rejected PML', 'Revoked PML', 'Approved', 'Rej Kab', 'Edt Kab', 'Rev Kab', 'Com Kab', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan', 'Keluarga Tidak Ditemukan', 'Keluarga Baru']);
+    ws_data.push(['Nama Petugas', 'PJ Kecamatan', 'Total Target', 'Tersubmit', '% Tersubmit', 'Open', 'Draft', 'Submitted', 'Rejected PML', 'Revoked PML', 'Approved', 'Rej Kab', 'Edt Kab', 'Rev Kab', 'Com Kab', 'Anomali Usaha Selesai', 'Anomali Usaha Belum', 'Anomali Keluarga Selesai', 'Anomali Keluarga Belum', 'Usaha Tutup', 'Usaha Tidak Ditemukan', 'Keluarga Tidak Ditemukan', 'Keluarga Baru']);
     const pList = Object.values(petugasData).map(p => {
         const ts = p.totalTarget - p.open - p.draft;
         const pct = p.totalTarget > 0 ? (ts / p.totalTarget * 100).toFixed(2) : 0;
         return { ...p, ts, pct };
     }).sort((a, b) => b.ts - a.ts);
     pList.forEach(p => {
-        const anomStr = `${p.anomaliDone || 0}/${p.anomaliTotal || 0}`;
-        ws_data.push([p.namaLengkap, p.koseka, p.totalTarget, p.ts, parseFloat(p.pct), p.open, p.draft, p.submitted, p.rejected, p.revoked, p.approved, p.rejectedK, p.editedK, p.revokedK, p.completedK, anomStr, p.usahaTutup || 0, p.usahaTidakDitemukan || 0, p.keluargaTidakDitemukan || 0, p.keluargaBaru || 0]);
+        const uSelesai = p.anomaliUsahaDone || 0;
+        const uBelum = (p.anomaliUsahaTotal || 0) - uSelesai;
+        const kSelesai = p.anomaliKeluargaDone || 0;
+        const kBelum = (p.anomaliKeluargaTotal || 0) - kSelesai;
+        ws_data.push([p.namaLengkap, p.koseka, p.totalTarget, p.ts, parseFloat(p.pct), p.open, p.draft, p.submitted, p.rejected, p.revoked, p.approved, p.rejectedK, p.editedK, p.revokedK, p.completedK, uSelesai, uBelum, kSelesai, kBelum, p.usahaTutup || 0, p.usahaTidakDitemukan || 0, p.keluargaTidakDitemukan || 0, p.keluargaBaru || 0]);
     });
     blank(2);
 
@@ -3320,15 +3331,18 @@ function exportOverviewToExcel() {
     // SECTION 4 — PROGRES KECAMATAN
     // ════════════════════════════════════════════════════
     ws_data.push(['C. PROGRES KECAMATAN']);
-    ws_data.push(['Kecamatan', 'Jml SLS', 'Total Target', 'Tersubmit', '% Tersubmit', 'Open', 'Draft', 'Submitted', 'Rejected PML', 'Revoked PML', 'Approved', 'Rej Kab', 'Edt Kab', 'Rev Kab', 'Com Kab', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan', 'Keluarga Tidak Ditemukan', 'Keluarga Baru']);
+    ws_data.push(['Kecamatan', 'Jml SLS', 'Total Target', 'Tersubmit', '% Tersubmit', 'Open', 'Draft', 'Submitted', 'Rejected PML', 'Revoked PML', 'Approved', 'Rej Kab', 'Edt Kab', 'Rev Kab', 'Com Kab', 'Anomali Usaha Selesai', 'Anomali Usaha Belum', 'Anomali Keluarga Selesai', 'Anomali Keluarga Belum', 'Usaha Tutup', 'Usaha Tidak Ditemukan', 'Keluarga Tidak Ditemukan', 'Keluarga Baru']);
     const kList = Object.values(kecamatanData).map(k => {
         const ts = k.totalTarget - k.open - k.draft;
         const pct = k.totalTarget > 0 ? (ts / k.totalTarget * 100).toFixed(2) : 0;
         return { ...k, ts, pct };
     }).sort((a, b) => b.ts - a.ts);
     kList.forEach(k => {
-        const anomStr = `${k.anomaliDone || 0}/${k.anomaliTotal || 0}`;
-        ws_data.push([k.kecamatan, k.slsCount, k.totalTarget, k.ts, parseFloat(k.pct), k.open, k.draft, k.submitted, k.rejected, k.revoked, k.approved, k.rejectedK, k.editedK, k.revokedK, k.completedK, anomStr, k.usahaTutup || 0, k.usahaTidakDitemukan || 0, k.keluargaTidakDitemukan || 0, k.keluargaBaru || 0]);
+        const uSelesai = k.anomaliUsahaDone || 0;
+        const uBelum = (k.anomaliUsahaTotal || 0) - uSelesai;
+        const kSelesai = k.anomaliKeluargaDone || 0;
+        const kBelum = (k.anomaliKeluargaTotal || 0) - kSelesai;
+        ws_data.push([k.kecamatan, k.slsCount, k.totalTarget, k.ts, parseFloat(k.pct), k.open, k.draft, k.submitted, k.rejected, k.revoked, k.approved, k.rejectedK, k.editedK, k.revokedK, k.completedK, uSelesai, uBelum, kSelesai, kBelum, k.usahaTutup || 0, k.usahaTidakDitemukan || 0, k.keluargaTidakDitemukan || 0, k.keluargaBaru || 0]);
     });
     blank(2);
 
@@ -3336,7 +3350,7 @@ function exportOverviewToExcel() {
     // SECTION 5 — PROGRES PJ KECAMATAN
     // ════════════════════════════════════════════════════
     ws_data.push(['D. PROGRES PJ KECAMATAN']);
-    ws_data.push(['Nama PJ Kecamatan', 'Total Target', '% Pendataan', '% Submit', '% Periksa', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan', 'Keluarga Tidak Ditemukan', 'Keluarga Baru']);
+    ws_data.push(['Nama PJ Kecamatan', 'Total Target', '% Pendataan', '% Submit', '% Periksa', 'Anomali Usaha Selesai', 'Anomali Usaha Belum', 'Anomali Keluarga Selesai', 'Anomali Keluarga Belum', 'Usaha Tutup', 'Usaha Tidak Ditemukan', 'Keluarga Tidak Ditemukan', 'Keluarga Baru']);
     const pjList = Object.keys(kosekaData).map(k => {
         const d = kosekaData[k];
         const total = d.totalTarget || 0;
@@ -3346,8 +3360,10 @@ function exportOverviewToExcel() {
             pendataan: parseFloat(((total - d.open) / total * 100).toFixed(2)),
             submit:    parseFloat(((total - d.open - d.draft) / total * 100).toFixed(2)),
             approve:   parseFloat((d.approved  / total * 100).toFixed(2)),
-            anomaliDone: d.anomaliDone || 0,
-            anomaliTotal: d.anomaliTotal || 0,
+            anomaliUsahaDone: d.anomaliUsahaDone || 0,
+            anomaliUsahaTotal: d.anomaliUsahaTotal || 0,
+            anomaliKeluargaDone: d.anomaliKeluargaDone || 0,
+            anomaliKeluargaTotal: d.anomaliKeluargaTotal || 0,
             usahaTutup: d.usahaTutup || 0,
             usahaTidakDitemukan: d.usahaTidakDitemukan || 0,
             keluargaTidakDitemukan: d.keluargaTidakDitemukan || 0,
@@ -3355,7 +3371,11 @@ function exportOverviewToExcel() {
         };
     }).filter(Boolean).sort((a, b) => b.pendataan - a.pendataan);
     pjList.forEach(p => {
-        ws_data.push([p.name, p.total, p.pendataan, p.submit, p.approve, `${p.anomaliDone}/${p.anomaliTotal}`, p.usahaTutup, p.usahaTidakDitemukan, p.keluargaTidakDitemukan, p.keluargaBaru]);
+        const uSelesai = p.anomaliUsahaDone;
+        const uBelum = p.anomaliUsahaTotal - uSelesai;
+        const kSelesai = p.anomaliKeluargaDone;
+        const kBelum = p.anomaliKeluargaTotal - kSelesai;
+        ws_data.push([p.name, p.total, p.pendataan, p.submit, p.approve, uSelesai, uBelum, kSelesai, kBelum, p.usahaTutup, p.usahaTidakDitemukan, p.keluargaTidakDitemukan, p.keluargaBaru]);
     });
     blank(2);
 
@@ -3363,7 +3383,7 @@ function exportOverviewToExcel() {
     // SECTION 6 — PROGRES PML
     // ════════════════════════════════════════════════════
     ws_data.push(['E. PROGRES PML (PENGAWAS LAPANGAN)']);
-    ws_data.push(['Nama PML', 'Total Target', '% Pendataan', '% Submit', '% Periksa', 'Anomali (X/Y)', 'Usaha Tutup', 'Usaha Tidak Ditemukan', 'Keluarga Tidak Ditemukan', 'Keluarga Baru']);
+    ws_data.push(['Nama PML', 'Total Target', '% Pendataan', '% Submit', '% Periksa', 'Anomali Usaha Selesai', 'Anomali Usaha Belum', 'Anomali Keluarga Selesai', 'Anomali Keluarga Belum', 'Usaha Tutup', 'Usaha Tidak Ditemukan', 'Keluarga Tidak Ditemukan', 'Keluarga Baru']);
     const pmlList = Object.keys(pmlData).map(p => {
         const d = pmlData[p];
         const total = d.totalTarget || 0;
@@ -3373,8 +3393,10 @@ function exportOverviewToExcel() {
             pendataan: parseFloat(((total - d.open) / total * 100).toFixed(2)),
             submit:    parseFloat(((total - d.open - d.draft) / total * 100).toFixed(2)),
             approve:   parseFloat((d.approved  / total * 100).toFixed(2)),
-            anomaliDone: d.anomaliDone || 0,
-            anomaliTotal: d.anomaliTotal || 0,
+            anomaliUsahaDone: d.anomaliUsahaDone || 0,
+            anomaliUsahaTotal: d.anomaliUsahaTotal || 0,
+            anomaliKeluargaDone: d.anomaliKeluargaDone || 0,
+            anomaliKeluargaTotal: d.anomaliKeluargaTotal || 0,
             usahaTutup: d.usahaTutup || 0,
             usahaTidakDitemukan: d.usahaTidakDitemukan || 0,
             keluargaTidakDitemukan: d.keluargaTidakDitemukan || 0,
@@ -3382,7 +3404,11 @@ function exportOverviewToExcel() {
         };
     }).filter(Boolean).sort((a, b) => b.pendataan - a.pendataan);
     pmlList.forEach(p => {
-        ws_data.push([p.name, p.total, p.pendataan, p.submit, p.approve, `${p.anomaliDone}/${p.anomaliTotal}`, p.usahaTutup, p.usahaTidakDitemukan, p.keluargaTidakDitemukan, p.keluargaBaru]);
+        const uSelesai = p.anomaliUsahaDone;
+        const uBelum = p.anomaliUsahaTotal - uSelesai;
+        const kSelesai = p.anomaliKeluargaDone;
+        const kBelum = p.anomaliKeluargaTotal - kSelesai;
+        ws_data.push([p.name, p.total, p.pendataan, p.submit, p.approve, uSelesai, uBelum, kSelesai, kBelum, p.usahaTutup, p.usahaTidakDitemukan, p.keluargaTidakDitemukan, p.keluargaBaru]);
     });
 
     // ════════════════════════════════════════════════════
