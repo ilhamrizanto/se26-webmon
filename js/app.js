@@ -589,8 +589,8 @@ function initApp() {
             if (foundIdx !== -1) syncPendataanCol = foundIdx;
         }
         const syncPendataan = extractCellTime(dbData.rawRows, 1, syncPendataanCol) || '-';
-        const syncAnomaliUsaha = extractCellTime(rawAnomaliUsahaRows, 0, 0, "dicetak:") || '-';
-        const syncAnomaliKeluarga = extractCellTime(rawAnomaliKeluargaRows, 0, 0, "dicetak:") || '-';
+        const syncAnomaliUsaha = extractCellTime(rawAnomaliUsahaRows, 1, 0, "dicetak:") || extractCellTime(rawAnomaliUsahaRows, 0, 0, "dicetak:") || '-';
+        const syncAnomaliKeluarga = extractCellTime(rawAnomaliKeluargaRows, 1, 0, "dicetak:") || extractCellTime(rawAnomaliKeluargaRows, 0, 0, "dicetak:") || '-';
         const syncStatusUsaha = extractCellTime(rawStatusUsahaRows, 1, 0, "diperbarui:") || '-';
         
         processAllData();
@@ -919,8 +919,8 @@ function processAllData() {
     console.log("Parsed Usaha count:", listAnomaliUsaha.length);
     console.log("Parsed Keluarga count:", listAnomaliKeluarga.length);
     
-    window.anomaliUsahaTime = extractCellTime(rawAnomaliUsahaRows, 0, 0, "dicetak:");
-    window.anomaliKeluargaTime = extractCellTime(rawAnomaliKeluargaRows, 0, 0, "dicetak:");
+    window.anomaliUsahaTime = extractCellTime(rawAnomaliUsahaRows, 1, 0, "dicetak:") || extractCellTime(rawAnomaliUsahaRows, 0, 0, "dicetak:");
+    window.anomaliKeluargaTime = extractCellTime(rawAnomaliKeluargaRows, 1, 0, "dicetak:") || extractCellTime(rawAnomaliKeluargaRows, 0, 0, "dicetak:");
     
     listAnomaliUsaha.forEach(a => a.type = 'usaha');
     listAnomaliKeluarga.forEach(a => a.type = 'keluarga');
