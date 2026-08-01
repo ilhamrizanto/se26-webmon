@@ -3397,18 +3397,24 @@ function exportOverviewToExcel() {
     // SECTION 3 — PROGRES PETUGAS (PCL)
     // ════════════════════════════════════════════════════
     ws_data.push(['B. PROGRES PETUGAS (PCL)']);
-    ws_data.push(['Nama Petugas', 'PJ Kecamatan', 'Total Target', 'Tersubmit', '% Tersubmit', 'Open', 'Draft', 'Submitted', 'Rejected PML', 'Revoked PML', 'Approved', 'Rej Kab', 'Edt Kab', 'Rev Kab', 'Com Kab', 'Anomali Usaha (Sudah Ditindaklanjuti)', 'Anomali Usaha (Belum)', 'Anomali Keluarga (Sudah Ditindaklanjuti)', 'Anomali Keluarga (Belum)', 'Usaha Tutup', 'Usaha Tidak Ditemukan', 'Keluarga Tidak Ditemukan', 'Keluarga Baru']);
+    ws_data.push(['PJ Kecamatan', 'PML', 'PPL (Petugas)', 'Total Target', 'Tersubmit', '% Tersubmit', 'Open', 'Draft', 'Submitted', 'Rejected PML', 'Revoked PML', 'Approved', 'Rej Kab', 'Edt Kab', 'Rev Kab', 'Com Kab', 'Anomali Usaha (Sudah Ditindaklanjuti)', 'Anomali Usaha (Belum)', 'Anomali Keluarga (Sudah Ditindaklanjuti)', 'Anomali Keluarga (Belum)', 'Usaha Tutup', 'Usaha Tidak Ditemukan', 'Keluarga Tidak Ditemukan', 'Keluarga Baru']);
     const pList = Object.values(petugasData).map(p => {
         const ts = p.totalTarget - p.open - p.draft;
         const pct = p.totalTarget > 0 ? (ts / p.totalTarget * 100).toFixed(2) : 0;
         return { ...p, ts, pct };
-    }).sort((a, b) => b.ts - a.ts);
+    }).sort((a, b) => {
+        const kComp = (a.koseka || '').localeCompare(b.koseka || '', 'id', { sensitivity: 'base' });
+        if (kComp !== 0) return kComp;
+        const pComp = (a.pml || '').localeCompare(b.pml || '', 'id', { sensitivity: 'base' });
+        if (pComp !== 0) return pComp;
+        return (a.namaLengkap || '').localeCompare(b.namaLengkap || '', 'id', { sensitivity: 'base' });
+    });
     pList.forEach(p => {
         const uSelesai = p.anomaliUsahaDone || 0;
         const uBelum = (p.anomaliUsahaTotal || 0) - uSelesai;
         const kSelesai = p.anomaliKeluargaDone || 0;
         const kBelum = (p.anomaliKeluargaTotal || 0) - kSelesai;
-        ws_data.push([p.namaLengkap, p.koseka, p.totalTarget, p.ts, parseFloat(p.pct), p.open, p.draft, p.submitted, p.rejected, p.revoked, p.approved, p.rejectedK, p.editedK, p.revokedK, p.completedK, uSelesai, uBelum, kSelesai, kBelum, p.usahaTutup || 0, p.usahaTidakDitemukan || 0, p.keluargaTidakDitemukan || 0, p.keluargaBaru || 0]);
+        ws_data.push([p.koseka || '-', p.pml || '-', p.namaLengkap || '-', p.totalTarget, p.ts, parseFloat(p.pct), p.open, p.draft, p.submitted, p.rejected, p.revoked, p.approved, p.rejectedK, p.editedK, p.revokedK, p.completedK, uSelesai, uBelum, kSelesai, kBelum, p.usahaTutup || 0, p.usahaTidakDitemukan || 0, p.keluargaTidakDitemukan || 0, p.keluargaBaru || 0]);
     });
     blank(2);
 
@@ -3421,7 +3427,7 @@ function exportOverviewToExcel() {
         const ts = k.totalTarget - k.open - k.draft;
         const pct = k.totalTarget > 0 ? (ts / k.totalTarget * 100).toFixed(2) : 0;
         return { ...k, ts, pct };
-    }).sort((a, b) => b.ts - a.ts);
+    }).sort((a, b) => (a.kecamatan || '').localeCompare(b.kecamatan || '', 'id', { sensitivity: 'base' }));
     kList.forEach(k => {
         const uSelesai = k.anomaliUsahaDone || 0;
         const uBelum = (k.anomaliUsahaTotal || 0) - uSelesai;
@@ -3440,11 +3446,12 @@ function exportOverviewToExcel() {
         const d = kosekaData[k];
         const total = d.totalTarget || 0;
         if (total === 0) return null;
+        const periksaCount = (d.rejected || 0) + (d.revoked || 0) + (d.approved || 0) + (d.rejectedK || 0) + (d.editedK || 0) + (d.revokedK || 0) + (d.completedK || 0);
         return {
             name: k, total,
             pendataan: parseFloat(((total - d.open) / total * 100).toFixed(2)),
             submit:    parseFloat(((total - d.open - d.draft) / total * 100).toFixed(2)),
-            approve:   parseFloat((d.approved  / total * 100).toFixed(2)),
+            approve:   parseFloat((periksaCount / total * 100).toFixed(2)),
             anomaliUsahaDone: d.anomaliUsahaDone || 0,
             anomaliUsahaTotal: d.anomaliUsahaTotal || 0,
             anomaliKeluargaDone: d.anomaliKeluargaDone || 0,
@@ -3454,7 +3461,7 @@ function exportOverviewToExcel() {
             keluargaTidakDitemukan: d.keluargaTidakDitemukan || 0,
             keluargaBaru: d.keluargaBaru || 0
         };
-    }).filter(Boolean).sort((a, b) => b.pendataan - a.pendataan);
+    }).filter(Boolean).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'id', { sensitivity: 'base' }));
     pjList.forEach(p => {
         const uSelesai = p.anomaliUsahaDone;
         const uBelum = p.anomaliUsahaTotal - uSelesai;
@@ -3473,11 +3480,12 @@ function exportOverviewToExcel() {
         const d = pmlData[p];
         const total = d.totalTarget || 0;
         if (total === 0) return null;
+        const periksaCount = (d.rejected || 0) + (d.revoked || 0) + (d.approved || 0) + (d.rejectedK || 0) + (d.editedK || 0) + (d.revokedK || 0) + (d.completedK || 0);
         return {
-            name: p, total,
+            name: p, koseka: d.koseka, total,
             pendataan: parseFloat(((total - d.open) / total * 100).toFixed(2)),
             submit:    parseFloat(((total - d.open - d.draft) / total * 100).toFixed(2)),
-            approve:   parseFloat((d.approved  / total * 100).toFixed(2)),
+            approve:   parseFloat((periksaCount / total * 100).toFixed(2)),
             anomaliUsahaDone: d.anomaliUsahaDone || 0,
             anomaliUsahaTotal: d.anomaliUsahaTotal || 0,
             anomaliKeluargaDone: d.anomaliKeluargaDone || 0,
@@ -3487,7 +3495,11 @@ function exportOverviewToExcel() {
             keluargaTidakDitemukan: d.keluargaTidakDitemukan || 0,
             keluargaBaru: d.keluargaBaru || 0
         };
-    }).filter(Boolean).sort((a, b) => b.pendataan - a.pendataan);
+    }).filter(Boolean).sort((a, b) => {
+        const kComp = (a.koseka || '').localeCompare(b.koseka || '', 'id', { sensitivity: 'base' });
+        if (kComp !== 0) return kComp;
+        return (a.name || '').localeCompare(b.name || '', 'id', { sensitivity: 'base' });
+    });
     pmlList.forEach(p => {
         const uSelesai = p.anomaliUsahaDone;
         const uBelum = p.anomaliUsahaTotal - uSelesai;
@@ -3503,9 +3515,9 @@ function exportOverviewToExcel() {
 
     ws['!cols'] = [
         { wch: 38 }, // A
-        { wch: 20 }, // B
-        { wch: 15 }, // C
-        { wch: 13 }, // D
+        { wch: 25 }, // B
+        { wch: 25 }, // C
+        { wch: 15 }, // D
         { wch: 15 }, // E
         { wch: 12 }, // F
         { wch: 12 }, // G
@@ -3543,7 +3555,7 @@ function exportOverviewToExcel() {
         
         if (row[0] && typeof row[0] === 'string') {
             if (row[0].match(/^[A-E]\. /) || row[0] === 'Detail Status Distribusi') isSection = true;
-            if (row[0] === 'Indikator' || row[0] === 'Status' || row[0] === 'Nama Petugas' || row[0] === 'Kecamatan' || row[0] === 'Nama PJ Kecamatan' || row[0] === 'Nama PML') isHeader = true;
+            if (row[0] === 'Indikator' || row[0] === 'Status' || row[0] === 'Nama Petugas' || row[0] === 'PJ Kecamatan' || row[0] === 'Kecamatan' || row[0] === 'Nama PJ Kecamatan' || row[0] === 'Nama PML') isHeader = true;
         }
 
         row.forEach((cell, c) => {
