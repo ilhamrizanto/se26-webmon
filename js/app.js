@@ -7,6 +7,7 @@ const SHEET_ANOMALI_USAHA_URL = `https://docs.google.com/spreadsheets/d/${SPREAD
 const SHEET_ANOMALI_KELUARGA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Anomali Keluarga`;
 const SHEET_STATUS_USAHA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Status%20Usaha`;
 const SHEET_STATUS_KELUARGA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Status%20Keluarga`;
+const SHEET_UED_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=UED`;
 
 const SPREADSHEET_ID_CATATAN = "1hfzqBgXF9yAYaB7vP-g-cUSNVfXJmrqXk0Ue9FUveo8";
 const SHEET_CATATAN_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID_CATATAN}/gviz/tq?tqx=out:csv&sheet=Mirror%20Status%20Usaha`;
@@ -21,10 +22,27 @@ let rawAnomaliUsahaRows = [];
 let rawAnomaliKeluargaRows = [];
 let rawStatusUsahaRows = [];
 let rawStatusKeluargaRows = [];
+let rawUedRows = [];
 let rawCatatanRows = [];
 let rawCatatanKeluargaRows = [];
 let catatanMap = {}; // keyed by slsId for Status Usaha
 let catatanKeluargaMap = {}; // keyed by slsId for Status Keluarga
+
+let uedList = [];
+let uedFilters = { pj: '', pml: '', pcl: '', kec: '', preset: 'all', search: '', sort: 'anomali' };
+let uedActiveTab = 'sls';
+let uedPageSls = 1;
+const UED_PAGE_SIZE = 60;
+
+function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
 
 let slsAssignments = []; // Unified data array
 let sortPjDesc = true;
@@ -216,6 +234,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setupAnomalyFilters();
     setupStatusUsahaFilters();
     setupStatusKeluargaFilters();
+    setupUedFilters();
     
     document.getElementById('btn-refresh').addEventListener('click', () => {
         elAppContent.style.display = 'none';
@@ -561,9 +580,10 @@ function initApp() {
         fetchCSVRaw(SHEET_ANOMALI_KELUARGA_URL),
         fetchCSVRaw(SHEET_STATUS_USAHA_URL),
         fetchCSVRaw(SHEET_STATUS_KELUARGA_URL),
+        fetchCSVRaw(SHEET_UED_URL).catch(() => []),
         fetchCSVRaw(SHEET_CATATAN_URL).catch(() => []), // graceful
         fetchCSVRaw(SHEET_CATATAN_KELUARGA_URL).catch(() => []) // graceful
-    ]).then(([dbData, namaData, slsDataRaw, korwilData, rawAnomaliUsaha, rawAnomaliKeluarga, rawStatusUsaha, rawStatusKeluarga, rawCatatan, rawCatatanKel]) => {
+    ]).then(([dbData, namaData, slsDataRaw, korwilData, rawAnomaliUsaha, rawAnomaliKeluarga, rawStatusUsaha, rawStatusKeluarga, uedDataRaw, rawCatatan, rawCatatanKel]) => {
         rawDataDB = dbData;
         rawNamaData = namaData;
         rawSlsData = slsDataRaw;
@@ -572,6 +592,7 @@ function initApp() {
         rawAnomaliKeluargaRows = rawAnomaliKeluarga;
         rawStatusUsahaRows = rawStatusUsaha;
         rawStatusKeluargaRows = rawStatusKeluarga;
+        rawUedRows = uedDataRaw || [];
         rawCatatanRows = rawCatatan || [];
         rawCatatanKeluargaRows = rawCatatanKel || [];
         catatanMap = parseCatatan(rawCatatanRows);
@@ -594,6 +615,7 @@ function initApp() {
         const syncStatusUsaha = extractCellTime(rawStatusUsahaRows, 1, 0, "diperbarui:") || '-';
         
         processAllData();
+        processUedData();
         updateDashboard();
         renderKorwilTable();
         renderPetugasTable();
@@ -1826,6 +1848,9 @@ function setupNavigation() {
             if (targetId === 'status-keluarga') {
                 renderStatusKeluargaPage();
             }
+            if (targetId === 'ued') {
+                renderUedPage();
+            }
 
             // Close mobile sidebar
             document.querySelector('.sidebar')?.classList.remove('open');
@@ -2636,6 +2661,525 @@ function setupStatusKeluargaFilters() {
         toggleBtn.addEventListener('click', () => {
             const isOpen = filterBody.classList.toggle('open');
             toggleBtn.innerHTML = `<i class="ri-filter-3-line"></i> Filter ${isOpen ? '▲' : '▼'}`;
+        });
+    }
+}
+
+// ═══════════════════════════════════════════════════════
+//  Usaha Ekonomi Digital (UED) Page Logic
+// ═══════════════════════════════════════════════════════
+
+function processUedData() {
+    uedList = [];
+    if (!rawUedRows || rawUedRows.length <= 1) return;
+    
+    for (let i = 1; i < rawUedRows.length; i++) {
+        const r = rawUedRows[i];
+        if (!r) continue;
+        
+        let kodeSls = '', namaSls = '', namaDesa = '', namaKec = '', totalUsaha = 0, pakaiInternet = 0, tidakPakai = 0, persenPakai = 0;
+
+        if (Array.isArray(r)) {
+            if (r.length < 5) continue;
+            kodeSls = String(r[0] || '').trim();
+            namaSls = String(r[1] || '').trim();
+            namaDesa = String(r[2] || '').trim();
+            namaKec = String(r[3] || '').trim();
+            totalUsaha = parseInt(r[4]) || 0;
+            pakaiInternet = parseInt(r[5]) || 0;
+            tidakPakai = parseInt(r[6]) || 0;
+            persenPakai = parseFloat(r[7]);
+        } else if (typeof r === 'object') {
+            kodeSls = String(r.kode_sls || r.KODE_SLS || r.kodeSls || r.idsubsls || '').trim();
+            namaSls = String(r.nama_sls || r.NAMA_SLS || r.namaSls || '').trim();
+            namaDesa = String(r.nama_desa || r.NAMA_DESA || r.namaDesa || '').trim();
+            namaKec = String(r.nama_kec || r.NAMA_KEC || r.namaKec || '').trim();
+            totalUsaha = parseInt(r.total_usaha || r.TOTAL_USAHA || r.totalUsaha) || 0;
+            pakaiInternet = parseInt(r.pakai_internet || r.PAKAI_INTERNET || r.pakaiInternet) || 0;
+            tidakPakai = parseInt(r.tidak_pakai || r.TIDAK_PAKAI || r.tidakPakai) || 0;
+            persenPakai = parseFloat(r.persen_pakai_internet || r.PERSEN_PAKAI_INTERNET || r.persenPakai);
+        }
+
+        if (!kodeSls || kodeSls.length < 5) continue;
+
+        if (isNaN(persenPakai)) {
+            persenPakai = totalUsaha > 0 ? parseFloat((pakaiInternet / totalUsaha * 100).toFixed(2)) : 0;
+        }
+
+        // Match with master DB
+        let koseka = '', pml = '', pclName = '', pclEmail = '';
+        const match = slsAssignments.find(s => String(s.slsId || '').trim() === kodeSls) ||
+                      rawDataDB.find(d => String(d.idsubsls || '').trim() === kodeSls);
+        if (match) {
+            koseka = match.koseka || match.kosekaName || '';
+            pml = match.pml || match.pmlName || '';
+            pclName = match.pclName || match.namaLengkap || '';
+            pclEmail = match.email || match.pclEmail || '';
+        }
+        if (!koseka || !pml || !pclName) {
+            const slsMatch = rawSlsData.find(s => String(s.idsubsls || '').trim() === kodeSls);
+            if (slsMatch) {
+                if (!koseka) koseka = slsMatch.koseka || '';
+                if (!pml) pml = slsMatch.pml || '';
+                if (!pclName) pclName = slsMatch.pclName || '';
+                if (!pclEmail) pclEmail = slsMatch.email || '';
+            }
+        }
+
+        // Fallbacks
+        koseka = koseka || 'Lainnya';
+        pml = pml || 'Lainnya';
+        pclName = pclName || 'Lainnya';
+        pclEmail = pclEmail || 'Lainnya';
+
+        // Anomaly categories
+        const isZero = totalUsaha >= 5 && pakaiInternet === 0;
+        const isHundred = totalUsaha >= 5 && persenPakai >= 99.9;
+        const isLow = totalUsaha >= 5 && persenPakai < 5 && pakaiInternet > 0;
+        const isHigh = totalUsaha >= 5 && persenPakai > 80 && persenPakai < 99.9;
+        const isAnomaly = isZero || isHundred || (totalUsaha >= 10 && persenPakai < 3);
+
+        uedList.push({
+            kodeSls,
+            namaSls,
+            namaDesa,
+            namaKec,
+            totalUsaha,
+            pakaiInternet,
+            tidakPakai,
+            persenPakai,
+            koseka,
+            pml,
+            pclName,
+            pclEmail,
+            isZero,
+            isHundred,
+            isLow,
+            isHigh,
+            isAnomaly
+        });
+    }
+
+    renderUedPage();
+}
+
+function renderUedPage() {
+    let list = uedList.slice();
+    
+    // Apply hierarchy filters
+    if (uedFilters.pj) {
+        list = list.filter(i => i.koseka === uedFilters.pj);
+    }
+    if (uedFilters.pml) {
+        list = list.filter(i => i.pml === uedFilters.pml);
+    }
+    if (uedFilters.pcl) {
+        list = list.filter(i => i.pclEmail === uedFilters.pcl || i.pclName === uedFilters.pcl);
+    }
+    if (uedFilters.kec) {
+        list = list.filter(i => i.namaKec.toLowerCase() === uedFilters.kec.toLowerCase());
+    }
+
+    // Apply preset chip
+    if (uedFilters.preset === 'anomali') {
+        list = list.filter(i => i.isAnomaly);
+    } else if (uedFilters.preset === 'zero') {
+        list = list.filter(i => i.isZero);
+    } else if (uedFilters.preset === 'hundred') {
+        list = list.filter(i => i.isHundred);
+    } else if (uedFilters.preset === 'low') {
+        list = list.filter(i => i.isLow);
+    } else if (uedFilters.preset === 'high') {
+        list = list.filter(i => i.isHigh);
+    }
+
+    // Apply search query
+    if (uedFilters.search) {
+        const q = uedFilters.search.toLowerCase().trim();
+        list = list.filter(i => 
+            i.namaSls.toLowerCase().includes(q) ||
+            i.kodeSls.toLowerCase().includes(q) ||
+            i.namaDesa.toLowerCase().includes(q) ||
+            i.namaKec.toLowerCase().includes(q) ||
+            i.koseka.toLowerCase().includes(q) ||
+            i.pml.toLowerCase().includes(q) ||
+            i.pclName.toLowerCase().includes(q) ||
+            i.pclEmail.toLowerCase().includes(q)
+        );
+    }
+
+    // Apply sorting
+    if (uedFilters.sort === 'anomali') {
+        list.sort((a, b) => (b.isAnomaly ? 1 : 0) - (a.isAnomaly ? 1 : 0) || b.totalUsaha - a.totalUsaha);
+    } else if (uedFilters.sort === 'zero') {
+        list.sort((a, b) => (b.isZero ? 1 : 0) - (a.isZero ? 1 : 0) || b.totalUsaha - a.totalUsaha);
+    } else if (uedFilters.sort === 'hundred') {
+        list.sort((a, b) => (b.isHundred ? 1 : 0) - (a.isHundred ? 1 : 0) || b.totalUsaha - a.totalUsaha);
+    } else if (uedFilters.sort === 'totalUsahaDesc') {
+        list.sort((a, b) => b.totalUsaha - a.totalUsaha);
+    } else if (uedFilters.sort === 'pctAsc') {
+        list.sort((a, b) => a.persenPakai - b.persenPakai || b.totalUsaha - a.totalUsaha);
+    } else if (uedFilters.sort === 'pctDesc') {
+        list.sort((a, b) => b.persenPakai - a.persenPakai || b.totalUsaha - a.totalUsaha);
+    } else if (uedFilters.sort === 'nama') {
+        list.sort((a, b) => a.namaSls.localeCompare(b.namaSls));
+    }
+
+    renderUedStats(uedList, list);
+    populateUedFilters(uedList);
+
+    const slsCountEl = document.getElementById('ued-count-sls');
+    if (slsCountEl) slsCountEl.textContent = list.length;
+    
+    if (uedActiveTab === 'sls') {
+        renderUedCardList(list);
+    } else {
+        renderUedPclTable(list);
+    }
+}
+
+function renderUedStats(all, filtered) {
+    const bar = document.getElementById('ued-stats-bar');
+    if (!bar) return;
+    
+    let totalUsahaAll = 0, totalPakaiAll = 0, zeroCount = 0, hundredCount = 0, anomalyCount = 0;
+    all.forEach(i => {
+        totalUsahaAll += i.totalUsaha;
+        totalPakaiAll += i.pakaiInternet;
+        if (i.isZero) zeroCount++;
+        if (i.isHundred) hundredCount++;
+        if (i.isAnomaly) anomalyCount++;
+    });
+    const avgPct = totalUsahaAll > 0 ? (totalPakaiAll / totalUsahaAll * 100).toFixed(1) : "0.0";
+
+    bar.innerHTML = `
+        <div class="su-stats-grid">
+            <div class="su-stat-pill">
+                <i class="ri-store-2-line" style="color:#6366f1;"></i>
+                <div>
+                    <span class="su-stat-num">${totalUsahaAll.toLocaleString('id-ID')}</span>
+                    <span class="su-stat-label">Total Usaha</span>
+                </div>
+            </div>
+            <div class="su-stat-pill">
+                <i class="ri-global-line" style="color:#10b981;"></i>
+                <div>
+                    <span class="su-stat-num">${avgPct}%</span>
+                    <span class="su-stat-label">Adopsi Internet</span>
+                </div>
+            </div>
+            <div class="su-stat-pill">
+                <i class="ri-alert-line" style="color:#f59e0b;"></i>
+                <div>
+                    <span class="su-stat-num">${anomalyCount}</span>
+                    <span class="su-stat-label">Potensi Anomali</span>
+                </div>
+            </div>
+            <div class="su-stat-pill">
+                <i class="ri-close-circle-line" style="color:#ef4444;"></i>
+                <div>
+                    <span class="su-stat-num">${zeroCount}</span>
+                    <span class="su-stat-label">SLS 0% Internet</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderUedCardList(list) {
+    const listEl = document.getElementById('ued-card-list');
+    const countEl = document.getElementById('ued-count');
+    if (!listEl) return;
+
+    if (countEl) countEl.textContent = list.length;
+
+    if (list.length === 0) {
+        listEl.innerHTML = `<div class="su-empty"><i class="ri-inbox-2-line"></i><p>Tidak ada Sub-SLS yang sesuai filter</p></div>`;
+        return;
+    }
+
+    const sliced = list.slice(0, uedPageSls * UED_PAGE_SIZE);
+    const hasMore = list.length > sliced.length;
+
+    listEl.innerHTML = sliced.map(item => buildUedCardHTML(item)).join('') +
+        (hasMore ? `<button id="ued-load-more-btn" class="anom-load-more" style="width:100%; margin-top:14px;"><i class="ri-arrow-down-line"></i> Tampilkan lebih banyak (${list.length - sliced.length} lagi)</button>` : '');
+
+    const loadMoreBtn = document.getElementById('ued-load-more-btn');
+    if (loadMoreBtn) {
+        loadMoreBtn.addEventListener('click', () => {
+            uedPageSls++;
+            renderUedCardList(list);
+        });
+    }
+}
+
+function buildUedCardHTML(item) {
+    let badgeHTML = '';
+    if (item.isZero) {
+        badgeHTML = `<span class="ued-badge ued-badge-danger"><i class="ri-alert-fill"></i> 0% Internet</span>`;
+    } else if (item.isHundred) {
+        badgeHTML = `<span class="ued-badge ued-badge-purple"><i class="ri-rocket-line"></i> 100% Internet</span>`;
+    } else if (item.isLow) {
+        badgeHTML = `<span class="ued-badge ued-badge-warning"><i class="ri-error-warning-line"></i> Low (&lt;5%)</span>`;
+    } else if (item.isHigh) {
+        badgeHTML = `<span class="ued-badge ued-badge-info"><i class="ri-arrow-up-circle-line"></i> High (&gt;80%)</span>`;
+    } else {
+        badgeHTML = `<span class="ued-badge ued-badge-success"><i class="ri-checkbox-circle-line"></i> Normal</span>`;
+    }
+
+    let progressColor = '#10b981';
+    if (item.persenPakai < 5) progressColor = '#ef4444';
+    else if (item.persenPakai < 15) progressColor = '#f59e0b';
+    else if (item.persenPakai > 80) progressColor = '#8b5cf6';
+
+    return `
+        <div class="ued-card">
+            <div class="ued-card-header">
+                <div>
+                    <div class="ued-card-title">${escapeHTML(item.namaSls)}</div>
+                    <div class="ued-card-subtitle"><i class="ri-map-pin-line"></i> ${escapeHTML(item.namaDesa)} &bull; ${escapeHTML(item.namaKec)} &bull; <span style="font-family:monospace; opacity:0.8;">${escapeHTML(item.kodeSls)}</span></div>
+                </div>
+                ${badgeHTML}
+            </div>
+
+            <div class="ued-metrics-grid">
+                <div class="ued-metric-item">
+                    <span class="ued-metric-label">Total Usaha</span>
+                    <span class="ued-metric-val">${item.totalUsaha}</span>
+                </div>
+                <div class="ued-metric-item">
+                    <span class="ued-metric-label">Pakai Internet</span>
+                    <span class="ued-metric-val" style="color:#059669;">${item.pakaiInternet}</span>
+                </div>
+                <div class="ued-metric-item">
+                    <span class="ued-metric-label">Tidak Pakai</span>
+                    <span class="ued-metric-val" style="color:#6b7280;">${item.tidakPakai}</span>
+                </div>
+                <div class="ued-metric-item">
+                    <span class="ued-metric-label">% Internet</span>
+                    <span class="ued-metric-val" style="color:${progressColor};">${item.persenPakai.toFixed(1)}%</span>
+                </div>
+            </div>
+
+            <div>
+                <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:600; text-transform:uppercase; margin-bottom:3px; color:var(--text-muted);">
+                    <span>Tingkat Adopsi Internet</span>
+                    <span style="color:var(--text-title); font-weight:700;">${item.persenPakai.toFixed(1)}%</span>
+                </div>
+                <div class="ued-progress-track">
+                    <div class="ued-progress-fill" style="width:${Math.min(100, Math.max(2, item.persenPakai))}%; background:${progressColor};"></div>
+                </div>
+            </div>
+
+            <div class="ued-hierarchy-footer">
+                <div class="ued-hierarchy-item" title="PJ Kecamatan"><i class="ri-government-line"></i> PJ: <strong>${escapeHTML(item.koseka)}</strong></div>
+                <div class="ued-hierarchy-item" title="PML (Pengawas)"><i class="ri-user-star-line"></i> PML: <strong>${escapeHTML(item.pml)}</strong></div>
+                <div class="ued-hierarchy-item" title="PCL (Petugas)"><i class="ri-user-smile-line"></i> PCL: <strong>${escapeHTML(item.pclName)}</strong></div>
+            </div>
+        </div>
+    `;
+}
+
+function renderUedPclTable(list) {
+    const wrap = document.getElementById('ued-pcl-table-wrap');
+    if (!wrap) return;
+
+    const pclMap = {};
+    list.forEach(item => {
+        const key = item.pclEmail !== 'Lainnya' ? item.pclEmail : item.pclName;
+        if (!pclMap[key]) {
+            pclMap[key] = {
+                name: item.pclName,
+                email: item.pclEmail,
+                koseka: item.koseka,
+                pml: item.pml,
+                slsCount: 0,
+                totalUsaha: 0,
+                pakaiInternet: 0,
+                tidakPakai: 0,
+                zeroCount: 0,
+                anomalyCount: 0
+            };
+        }
+        const p = pclMap[key];
+        p.slsCount++;
+        p.totalUsaha += item.totalUsaha;
+        p.pakaiInternet += item.pakaiInternet;
+        p.tidakPakai += item.tidakPakai;
+        if (item.isZero) p.zeroCount++;
+        if (item.isAnomaly) p.anomalyCount++;
+    });
+
+    const pclList = Object.values(pclMap).map(p => {
+        const pct = p.totalUsaha > 0 ? parseFloat((p.pakaiInternet / p.totalUsaha * 100).toFixed(2)) : 0;
+        return { ...p, pct };
+    }).sort((a, b) => b.zeroCount - a.zeroCount || b.anomalyCount - a.anomalyCount || a.pct - b.pct);
+
+    const countEl = document.getElementById('ued-pcl-table-count');
+    if (countEl) countEl.textContent = pclList.length;
+
+    const pclTabCount = document.getElementById('ued-count-pcl');
+    if (pclTabCount) pclTabCount.textContent = pclList.length;
+
+    if (pclList.length === 0) {
+        wrap.innerHTML = `<div class="su-empty"><i class="ri-inbox-2-line"></i><p>Tidak ada data petugas yang sesuai filter</p></div>`;
+        return;
+    }
+
+    let rowsHTML = pclList.map(p => {
+        let riskBadge = `<span class="ued-badge ued-badge-success">Normal</span>`;
+        if (p.zeroCount >= 2) {
+            riskBadge = `<span class="ued-badge ued-badge-danger">⚠️ Tinggi (${p.zeroCount} SLS 0%)</span>`;
+        } else if (p.zeroCount === 1) {
+            riskBadge = `<span class="ued-badge ued-badge-warning">Perhatian (1 SLS 0%)</span>`;
+        }
+
+        return `
+            <tr>
+                <td>
+                    <div style="font-weight:700; color:var(--text-title);">${escapeHTML(p.name)}</div>
+                    <div style="font-size:10px; color:var(--text-muted);">${escapeHTML(p.email)}</div>
+                </td>
+                <td>${escapeHTML(p.pml)}</td>
+                <td>${escapeHTML(p.koseka)}</td>
+                <td style="text-align:center;">${p.slsCount}</td>
+                <td style="text-align:center; font-weight:700;">${p.totalUsaha.toLocaleString('id-ID')}</td>
+                <td style="text-align:center; color:#059669; font-weight:700;">${p.pakaiInternet.toLocaleString('id-ID')}</td>
+                <td style="text-align:center;">${p.pct.toFixed(1)}%</td>
+                <td style="text-align:center;">${riskBadge}</td>
+            </tr>
+        `;
+    }).join('');
+
+    wrap.innerHTML = `
+        <table class="ued-table">
+            <thead>
+                <tr>
+                    <th>Petugas (PCL)</th>
+                    <th>PML</th>
+                    <th>PJ Kecamatan</th>
+                    <th style="text-align:center;">Jml SLS</th>
+                    <th style="text-align:center;">Total Usaha</th>
+                    <th style="text-align:center;">Pakai Internet</th>
+                    <th style="text-align:center;">% Internet</th>
+                    <th style="text-align:center;">Indikator Risiko Anomali</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rowsHTML}
+            </tbody>
+        </table>
+    `;
+}
+
+function populateUedFilters(allList) {
+    const selPJ = document.getElementById('ued-filter-pj');
+    const selPML = document.getElementById('ued-filter-pml');
+    const selPCL = document.getElementById('ued-filter-pcl');
+    const selKec = document.getElementById('ued-filter-kec');
+    const selSort = document.getElementById('ued-sort');
+    if (!selPJ) return;
+
+    const allPJs = [...new Set(allList.map(i => i.koseka).filter(Boolean))].sort();
+    if (uedFilters.pj && !allPJs.includes(uedFilters.pj)) uedFilters.pj = '';
+
+    const pmlSrc = uedFilters.pj ? allList.filter(i => i.koseka === uedFilters.pj) : allList;
+    const allPMLs = [...new Set(pmlSrc.map(i => i.pml).filter(Boolean))].sort();
+    if (uedFilters.pml && !allPMLs.includes(uedFilters.pml)) uedFilters.pml = '';
+
+    const pclSrc = uedFilters.pml ? pmlSrc.filter(i => i.pml === uedFilters.pml) : pmlSrc;
+    const allPCLs = [...new Set(pclSrc.map(i => i.pclName).filter(Boolean))].sort();
+    if (uedFilters.pcl && !allPCLs.includes(uedFilters.pcl)) uedFilters.pcl = '';
+
+    const allKecs = [...new Set(allList.map(i => i.namaKec).filter(Boolean))].sort();
+
+    const fillSelect = (el, opts, cur) => {
+        if (!el) return;
+        el.innerHTML = `<option value="">Semua</option>` +
+            opts.map(o => `<option value="${o}" ${o === cur ? 'selected' : ''}>${o}</option>`).join('');
+    };
+
+    fillSelect(selPJ, allPJs, uedFilters.pj);
+    fillSelect(selPML, allPMLs, uedFilters.pml);
+    fillSelect(selPCL, allPCLs, uedFilters.pcl);
+    fillSelect(selKec, allKecs, uedFilters.kec);
+
+    applySearchableCustomSelect(selPJ);
+    applySearchableCustomSelect(selPML);
+    applySearchableCustomSelect(selPCL);
+    applySearchableCustomSelect(selKec);
+    if (selSort) applyCustomSelect(selSort);
+}
+
+function setupUedFilters() {
+    const selPJ = document.getElementById('ued-filter-pj');
+    const selPML = document.getElementById('ued-filter-pml');
+    const selPCL = document.getElementById('ued-filter-pcl');
+    const selKec = document.getElementById('ued-filter-kec');
+    const selSort = document.getElementById('ued-sort');
+    const searchEl = document.getElementById('ued-search');
+    const clearBtn = document.getElementById('ued-filter-clear');
+    const toggleBtn = document.getElementById('btn-toggle-ued-filters');
+    const filterBody = document.getElementById('ued-filters-body');
+
+    if (selPJ) selPJ.addEventListener('change', () => { uedFilters.pj = selPJ.value; uedFilters.pml = ''; uedFilters.pcl = ''; uedPageSls = 1; renderUedPage(); });
+    if (selPML) selPML.addEventListener('change', () => { uedFilters.pml = selPML.value; uedFilters.pcl = ''; uedPageSls = 1; renderUedPage(); });
+    if (selPCL) selPCL.addEventListener('change', () => { uedFilters.pcl = selPCL.value; uedPageSls = 1; renderUedPage(); });
+    if (selKec) selKec.addEventListener('change', () => { uedFilters.kec = selKec.value; uedPageSls = 1; renderUedPage(); });
+    if (selSort) selSort.addEventListener('change', () => { uedFilters.sort = selSort.value; uedPageSls = 1; renderUedPage(); });
+    if (searchEl) searchEl.addEventListener('input', () => { uedFilters.search = searchEl.value; uedPageSls = 1; renderUedPage(); });
+
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+        uedFilters = { pj: '', pml: '', pcl: '', kec: '', preset: 'all', search: '', sort: 'anomali' };
+        uedPageSls = 1;
+        if (selPJ) selPJ.value = '';
+        if (selPML) selPML.value = '';
+        if (selPCL) selPCL.value = '';
+        if (selKec) selKec.value = '';
+        if (selSort) selSort.value = 'anomali';
+        if (searchEl) searchEl.value = '';
+        document.querySelectorAll('#ued-preset-chips .ued-chip').forEach(c => c.classList.toggle('active', c.dataset.preset === 'all'));
+        renderUedPage();
+    });
+
+    if (toggleBtn && filterBody) {
+        toggleBtn.addEventListener('click', () => {
+            const isOpen = filterBody.classList.toggle('open');
+            toggleBtn.innerHTML = `<i class="ri-filter-3-line"></i> Filter ${isOpen ? '▲' : '▼'}`;
+        });
+    }
+
+    document.querySelectorAll('#ued-preset-chips .ued-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            document.querySelectorAll('#ued-preset-chips .ued-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            uedFilters.preset = chip.dataset.preset || 'all';
+            uedPageSls = 1;
+            renderUedPage();
+        });
+    });
+
+    const tabSls = document.getElementById('ued-btn-tab-sls');
+    const tabPcl = document.getElementById('ued-btn-tab-pcl');
+    const panelSls = document.getElementById('ued-panel-sls');
+    const panelPcl = document.getElementById('ued-panel-pcl');
+
+    if (tabSls && tabPcl) {
+        tabSls.addEventListener('click', () => {
+            uedActiveTab = 'sls';
+            tabSls.classList.add('active');
+            tabPcl.classList.remove('active');
+            if (panelSls) panelSls.style.display = 'flex';
+            if (panelPcl) panelPcl.style.display = 'none';
+            renderUedPage();
+        });
+        tabPcl.addEventListener('click', () => {
+            uedActiveTab = 'pcl';
+            tabPcl.classList.add('active');
+            tabSls.classList.remove('active');
+            if (panelPcl) panelPcl.style.display = 'flex';
+            if (panelSls) panelSls.style.display = 'none';
+            renderUedPage();
         });
     }
 }

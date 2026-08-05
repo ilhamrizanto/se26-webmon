@@ -1645,3 +1645,134 @@ body.light-theme {
     color: var(--text-body);
     width: 100%;
 }
+
+/* ================================================================
+   USAHA EKONOMI DIGITAL (UED) PAGE STYLES
+   ================================================================ */
+.ued-preset-chips {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px dashed var(--border-glass);
+}
+.ued-chip {
+    padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    border: 1px solid var(--border-glass-md); background: rgba(0,0,0,0.03);
+    color: var(--text-muted); cursor: pointer; transition: all 0.18s ease;
+    white-space: nowrap;
+}
+.ued-chip:hover { background: rgba(99,102,241,0.08); color: #4f46e5; border-color: rgba(99,102,241,0.3); }
+.ued-chip.active { background: #4f46e5; color: #ffffff; border-color: #4f46e5; box-shadow: 0 2px 8px rgba(79,70,229,0.25); }
+
+.ued-chip.chip-warning.active { background: #f59e0b; border-color: #d97706; box-shadow: 0 2px 8px rgba(245,158,11,0.3); }
+.ued-chip.chip-danger.active { background: #ef4444; border-color: #dc2626; box-shadow: 0 2px 8px rgba(239,68,68,0.3); }
+.ued-chip.chip-success.active { background: #10b981; border-color: #059669; box-shadow: 0 2px 8px rgba(16,185,129,0.3); }
+.ued-chip.chip-info.active { background: #3b82f6; border-color: #2563eb; box-shadow: 0 2px 8px rgba(59,130,246,0.3); }
+.ued-chip.chip-purple.active { background: #8b5cf6; border-color: #7c3aed; box-shadow: 0 2px 8px rgba(139,92,246,0.3); }
+
+.ued-view-toggle-bar {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+}
+.ued-tab-btn {
+    padding: 8px 16px; border-radius: 10px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--border-glass-md); background: var(--bg-glass-card);
+    color: var(--text-muted); cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px;
+}
+.ued-tab-btn:hover { background: rgba(99,102,241,0.06); color: var(--text-title); }
+.ued-tab-btn.active {
+    background: rgba(99,102,241,0.12); color: #4f46e5; border-color: rgba(99,102,241,0.4);
+    box-shadow: 0 2px 8px rgba(99,102,241,0.12);
+}
+
+.ued-card {
+    background: var(--bg-glass-card);
+    border: 1px solid var(--border-glass);
+    border-radius: 14px;
+    padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 10px;
+    transition: all 0.2s;
+}
+.ued-card:hover {
+    border-color: rgba(99,102,241,0.35);
+    box-shadow: var(--shadow-card);
+    transform: translateY(-1px);
+}
+.ued-card-header {
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+}
+.ued-card-title {
+    font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; color: var(--text-title);
+    line-height: 1.3;
+}
+.ued-card-subtitle {
+    font-size: 10px; color: var(--text-muted); margin-top: 2px;
+}
+.ued-badge {
+    padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 4px;
+}
+.ued-badge-danger { background: rgba(239,68,68,0.12); color: #dc2626; border: 1px solid rgba(239,68,68,0.25); }
+.ued-badge-warning { background: rgba(245,158,11,0.12); color: #d97706; border: 1px solid rgba(245,158,11,0.25); }
+.ued-badge-success { background: rgba(16,185,129,0.12); color: #059669; border: 1px solid rgba(16,185,129,0.25); }
+.ued-badge-info { background: rgba(59,130,246,0.12); color: #2563eb; border: 1px solid rgba(59,130,246,0.25); }
+.ued-badge-purple { background: rgba(139,92,246,0.12); color: #7c3aed; border: 1px solid rgba(139,92,246,0.25); }
+
+.ued-metrics-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+    background: rgba(0,0,0,0.02); border: 1px solid var(--border-glass-md);
+    border-radius: 10px; padding: 8px;
+}
+.ued-metric-item { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.ued-metric-label { font-size: 9px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; }
+.ued-metric-val { font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; color: var(--text-title); margin-top: 1px; }
+
+.ued-progress-track {
+    height: 6px; border-radius: 3px; background: rgba(0,0,0,0.06); overflow: hidden; width: 100%;
+}
+.ued-progress-fill {
+    height: 100%; border-radius: 3px; transition: width 0.4s ease;
+}
+
+.ued-hierarchy-footer {
+    display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 10px; color: var(--text-muted);
+    padding-top: 6px; border-top: 1px solid var(--border-glass);
+}
+.ued-hierarchy-item { display: flex; align-items: center; gap: 4px; }
+.ued-hierarchy-item i { color: #6366f1; font-size: 11px; }
+
+.ued-pcl-table-wrap {
+    padding: 0 12px 12px 12px;
+    overflow: auto;
+    flex: 1;
+    max-height: 65vh;
+}
+.ued-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+}
+.ued-table th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #e0e7ff;
+    color: var(--text-title);
+    font-weight: 700;
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 2px solid rgba(99, 102, 241, 0.3);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+.ued-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-glass);
+    color: var(--text-body);
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.ued-table tbody tr:hover td { background: rgba(99, 102, 241, 0.06); }

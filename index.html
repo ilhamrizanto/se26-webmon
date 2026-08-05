@@ -106,6 +106,10 @@
                     <i class="ri-group-line"></i>
                     <span>Status Keluarga</span>
                 </a>
+                <a href="#" class="nav-item" data-target="ued">
+                    <i class="ri-global-line"></i>
+                    <span>Usaha Ekonomi Digital</span>
+                </a>
                 <a href="#" class="nav-item" data-target="petugas" style="display: none !important;">
                     <i class="ri-user-smile-line"></i>
                     <span>Petugas (PCL)</span>
@@ -953,6 +957,106 @@
                     </div>
                 </section>
 
+                <!-- ═══════════════════════════════════════════ -->
+                <!-- Usaha Ekonomi Digital Page -->
+                <!-- ═══════════════════════════════════════════ -->
+                <section id="view-ued" class="view-section">
+                    <div class="section-title-block">
+                        <div>
+                            <h1>Usaha Ekonomi Digital (UED)</h1>
+                            <p>Analisis adopsi penggunaan internet usaha per Sub-SLS &mdash; deteksi anomali pendataan dan atribusi pengawasan (PJ, PML, PCL).</p>
+                        </div>
+                    </div>
+
+                    <!-- Stats Summary Bar -->
+                    <div id="ued-stats-bar" class="su-stats-bar-wrapper"></div>
+
+                    <!-- Filter Bar -->
+                    <div class="ued-filter-bar su-filter-bar glass-panel-inner">
+                        <!-- Top Filter Row -->
+                        <div class="su-filter-top">
+                            <button id="btn-toggle-ued-filters" class="su-toggle-btn"><i class="ri-filter-3-line"></i> Filter &#9660;</button>
+                            <div class="su-search-wrap">
+                                <i class="ri-search-line"></i>
+                                <input id="ued-search" type="text" placeholder="Cari nama SLS, desa, kecamatan, atau petugas..." autocomplete="off">
+                            </div>
+                            <div class="su-sort-wrap">
+                                <label><i class="ri-sort-desc"></i></label>
+                                <select id="ued-sort">
+                                    <option value="anomali">⚠️ Prioritas Anomali</option>
+                                    <option value="zero">🔴 0% Internet First</option>
+                                    <option value="hundred">🟢 100% Internet First</option>
+                                    <option value="totalUsahaDesc">Total Usaha Terbanyak</option>
+                                    <option value="pctAsc">% Internet Terendah</option>
+                                    <option value="pctDesc">% Internet Tertinggi</option>
+                                    <option value="nama">Nama SLS A-Z</option>
+                                </select>
+                            </div>
+                            <button id="ued-filter-clear" class="su-clear-btn" title="Reset semua filter"><i class="ri-refresh-line"></i></button>
+                        </div>
+
+                        <!-- Anomaly Preset Chips -->
+                        <div class="ued-preset-chips" id="ued-preset-chips">
+                            <button class="ued-chip active" data-preset="all">Semua Sub-SLS</button>
+                            <button class="ued-chip chip-warning" data-preset="anomali">⚠️ Potensi Anomali</button>
+                            <button class="ued-chip chip-danger" data-preset="zero">🔴 0% Internet (Min. 5 Usaha)</button>
+                            <button class="ued-chip chip-success" data-preset="hundred">🟢 100% Internet (Min. 5 Usaha)</button>
+                            <button class="ued-chip chip-info" data-preset="low">📉 Low (&lt; 5%)</button>
+                            <button class="ued-chip chip-purple" data-preset="high">🚀 High (&gt; 80%)</button>
+                        </div>
+
+                        <!-- Collapsible Filter Body -->
+                        <div id="ued-filters-body" class="su-filters-body">
+                            <div class="su-filter-row">
+                                <div class="su-filter-group">
+                                    <label><i class="ri-government-line"></i> PJ Kecamatan</label>
+                                    <select id="ued-filter-pj"><option value="">Semua</option></select>
+                                </div>
+                                <div class="su-filter-group">
+                                    <label><i class="ri-user-star-line"></i> PML</label>
+                                    <select id="ued-filter-pml"><option value="">Semua</option></select>
+                                </div>
+                                <div class="su-filter-group">
+                                    <label><i class="ri-user-smile-line"></i> PCL</label>
+                                    <select id="ued-filter-pcl"><option value="">Semua</option></select>
+                                </div>
+                                <div class="su-filter-group">
+                                    <label><i class="ri-map-pin-line"></i> Kecamatan</label>
+                                    <select id="ued-filter-kec"><option value="">Semua</option></select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- View Mode Toggle & Content Container -->
+                    <div class="ued-view-toggle-bar">
+                        <button id="ued-btn-tab-sls" class="ued-tab-btn active"><i class="ri-layout-grid-line"></i> Detail Sub-SLS (<span id="ued-count-sls">0</span>)</button>
+                        <button id="ued-btn-tab-pcl" class="ued-tab-btn"><i class="ri-user-search-line"></i> Audit Kinerja Petugas (PCL) (<span id="ued-count-pcl">0</span>)</button>
+                    </div>
+
+                    <!-- SLS List Panel -->
+                    <div id="ued-panel-sls" class="su-panel glass-panel-inner" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+                        <div class="su-panel-header">
+                            <span><i class="ri-global-line"></i> Daftar Sub-SLS &amp; Adopsi Internet Usaha</span>
+                            <span class="badge-count" id="ued-count">0</span>
+                        </div>
+                        <div class="su-card-list" id="ued-card-list">
+                            <div class="su-empty"><i class="ri-inbox-2-line"></i><p>Pilih tab Usaha Ekonomi Digital untuk memuat data</p></div>
+                        </div>
+                    </div>
+
+                    <!-- PCL Audit Table Panel -->
+                    <div id="ued-panel-pcl" class="su-panel glass-panel-inner" style="display: none; flex-direction: column; flex: 1; min-height: 0;">
+                        <div class="su-panel-header">
+                            <span><i class="ri-user-star-line"></i> Audit Kualitas Pendataan UED per Petugas (PCL)</span>
+                            <span class="badge-count" id="ued-pcl-table-count">0</span>
+                        </div>
+                        <div class="ued-pcl-table-wrap" id="ued-pcl-table-wrap">
+                            <div class="su-empty"><i class="ri-inbox-2-line"></i><p>Memuat data audit petugas...</p></div>
+                        </div>
+                    </div>
+                </section>
+
             </div>
         </main>
     </div>
@@ -1028,6 +1132,6 @@
     </div>
 
     <!-- Custom JS script -->
-    <script src="js/app.js?v=108"></script>
+    <script src="js/app.js?v=112"></script>
 </body>
 </html>
