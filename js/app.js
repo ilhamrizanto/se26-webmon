@@ -3,8 +3,7 @@ const SHEET_DB_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/g
 const SHEET_NAMA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Nama`;
 const SHEET_SLS_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=SLS`;
 const SHEET_KORWIL_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Korwil`;
-const SHEET_ANOMALI_USAHA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Anomali Usaha`;
-const SHEET_ANOMALI_KELUARGA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Anomali Keluarga`;
+const SHEET_ANOMALI_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Anomali`;
 const SHEET_STATUS_USAHA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Status%20Usaha`;
 const SHEET_STATUS_KELUARGA_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=Status%20Keluarga`;
 const SHEET_UED_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=UED`;
@@ -18,8 +17,7 @@ let rawDataDB = [];
 let rawNamaData = [];
 let rawSlsData = [];
 let rawKorwilData = [];
-let rawAnomaliUsahaRows = [];
-let rawAnomaliKeluargaRows = [];
+let rawAnomaliRows = [];
 let rawStatusUsahaRows = [];
 let rawStatusKeluargaRows = [];
 let rawUedRows = [];
@@ -324,40 +322,37 @@ function parseWaktuSinkron(val) {
     return `${day} ${months[mon-1]}`;
 }
 
-function parseAnomaliRows(rawRows) {
-    if (!rawRows || rawRows.length === 0) return [];
-    
+function parseUnifiedAnomalySheet(rawRows) {
+    if (!rawRows || rawRows.length < 3) return { listAnomaliUsaha: [], listAnomaliKeluarga: [] };
+
     let headerIdx = -1;
     for (let i = 0; i < Math.min(10, rawRows.length); i++) {
         const rowStr = (rawRows[i] || []).map(c => String(c || '').trim()).join(' ');
-        if (rowStr.toLowerCase().includes('kode desa') && (rowStr.toLowerCase().includes('checklist') || rowStr.toLowerCase().includes('tindak lanjut') || rowStr.toLowerCase().includes('kode sls'))) {
+        if (rowStr.toLowerCase().includes('kode desa') && (rowStr.toLowerCase().includes('daftar anomali') || rowStr.toLowerCase().includes('tindak lanjut') || rowStr.toLowerCase().includes('kode sls'))) {
             headerIdx = i;
             break;
         }
     }
     
-    if (headerIdx === -1) return [];
+    if (headerIdx === -1) return { listAnomaliUsaha: [], listAnomaliKeluarga: [] };
     
-    const headers = rawRows[headerIdx].map(c => String(c || '').trim());
+    const headers = rawRows[headerIdx].map(c => String(c || '').trim().toLowerCase());
     
-    const idxDesa = headers.findIndex(h => h.toLowerCase().includes('kode desa'));
-    const idxSLS = headers.findIndex(h => h.toLowerCase().includes('kode sls'));
-    const idxSubSLS = headers.findIndex(h => h.toLowerCase().includes('sub sls'));
-    const idxTL = headers.findIndex(h => h.toLowerCase().includes('checklist') || h.toLowerCase().includes('tindak lanjut'));
-    const idxEmail = headers.findIndex(h => h.toLowerCase().includes('email'));
-    const idxKrt = headers.findIndex(h => h.toLowerCase().includes('nama krt') || h.toLowerCase().includes('nama kepala keluarga') || h.toLowerCase().includes('nama usaha'));
-    const idxKec = headers.findIndex(h => h.toLowerCase().includes('nama kecamatan'));
-    const idxDesaName = headers.findIndex(h => h.toLowerCase().includes('nama desa/kel'));
-    const idxAnom = headers.findIndex(h => h.toLowerCase().includes('nama anomali'));
-    const idxFasih = headers.findIndex(h => h.toLowerCase().includes('link fasih'));
-    const idxWaktuSinkron = headers.findIndex(h => h.toLowerCase().includes('waktu sinkron'));
-    const idxWaktuSelesai = headers.findIndex(h => h.toLowerCase().includes('waktu selesai'));
-    
-    if (idxDesa === -1 || idxSLS === -1 || idxSubSLS === -1) return [];
-    
-    const items = [];
+    const idxDesa = headers.findIndex(h => h.includes('kode desa'));
+    const idxSLS = headers.findIndex(h => h.includes('kode sls'));
+    const idxSubSLS = headers.findIndex(h => h.includes('sub sls'));
+    const idxTL = headers.findIndex(h => h.includes('tindak lanjut') || h.includes('checklist'));
+    const idxEmail = headers.findIndex(h => h.includes('email'));
+    const idxKrt = headers.findIndex(h => h.includes('nama usaha') || h.includes('nama krt') || h.includes('nama kepala keluarga'));
+    const idxKec = headers.findIndex(h => h.includes('nama kecamatan'));
+    const idxDesaName = headers.findIndex(h => h.includes('nama desa/kel'));
+    const idxAnom = headers.findIndex(h => h.includes('daftar anomali') || h.includes('nama anomali'));
+    const idxFasih = headers.findIndex(h => h.includes('link fasih'));
+
+    const listAnomaliUsaha = [];
+    const listAnomaliKeluarga = [];
     const dataRows = rawRows.slice(headerIdx + 1);
-    
+
     dataRows.forEach(row => {
         if (!row || row.length === 0) return;
         
@@ -370,38 +365,53 @@ function parseAnomaliRows(rawRows) {
         const desaPad = rawDesa.padStart(10, '0');
         const slsPad = rawSLS.padStart(4, '0');
         const subSlsPad = rawSubSLS.padStart(2, '0');
-        
         const idsubsls = desaPad + slsPad + subSlsPad;
-        
+
         const tlVal = idxTL !== -1 ? String(row[idxTL] || '').trim().toLowerCase() : '';
         const isDone = tlVal && tlVal !== 'belum ditindaklanjuti';
         
         const email = idxEmail !== -1 ? String(row[idxEmail] || '').trim().toLowerCase() : '';
+        const cleanEmail = (email && email !== '-') ? email : '';
         const namaKrt = idxKrt !== -1 ? String(row[idxKrt] || '').trim() : '';
         const nmkec = idxKec !== -1 ? String(row[idxKec] || '').trim() : '';
         const nmdesa = idxDesaName !== -1 ? String(row[idxDesaName] || '').trim() : '';
         const namaAnomali = idxAnom !== -1 ? String(row[idxAnom] || '').trim() : '';
         const linkFasih = idxFasih !== -1 ? String(row[idxFasih] || '').trim() : '';
-        const waktuSinkron = idxWaktuSinkron !== -1 ? parseWaktuSinkron(row[idxWaktuSinkron]) : '-';
-        const waktuSelesai = idxWaktuSelesai !== -1 ? parseWaktuSinkron(row[idxWaktuSelesai]) : '-';
-        const waktuSinkronRaw = idxWaktuSinkron !== -1 ? String(row[idxWaktuSinkron] || '').trim().replace(/\D/g,'') : '';
-        
-        items.push({
+
+        if (!idsubsls || !namaAnomali) return;
+
+        // Determine anomaly categories
+        const daLower = namaAnomali.toLowerCase();
+        let isUsaha = namaAnomali.includes('Anomali Usaha') || daLower.includes('usaha') || daLower.includes('kbli') || daLower.includes('laporan keuangan') || daLower.includes('biaya produksi') || daLower.includes('keuntungan') || daLower.includes('badan usaha') || namaKrt.includes('[Usaha:');
+        let isKeluarga = namaAnomali.includes('Anomali Keluarga') || daLower.includes('keluarga') || daLower.includes('pasangan') || daLower.includes('disabilitas') || daLower.includes('listrik') || daLower.includes('luas lantai') || daLower.includes('art') || namaKrt.includes('[Keluarga:');
+
+        if (!isUsaha && !isKeluarga) {
+            isKeluarga = true;
+        }
+
+        const baseItem = {
             idsubsls,
             isDone,
-            email,
+            email: cleanEmail,
             namaKrt,
             nmkec,
             nmdesa,
             namaAnomali,
             linkFasih,
-            waktuSinkron,
-            waktuSelesai,
-            waktuSinkronRaw
-        });
+            waktuSinkron: '-',
+            waktuSelesai: '-',
+            waktuSinkronRaw: ''
+        };
+
+        if (isUsaha) {
+            listAnomaliUsaha.push({ ...baseItem, type: 'usaha' });
+        }
+        if (isKeluarga) {
+            listAnomaliKeluarga.push({ ...baseItem, type: 'keluarga' });
+        }
     });
-    
-    return items;
+
+    return { listAnomaliUsaha, listAnomaliKeluarga };
 }
 
 function extractCellTime(rawRows, rowIndex, colIndex, searchLabel) {
@@ -576,20 +586,18 @@ function initApp() {
         fetchCSV(SHEET_NAMA_URL),
         fetchCSV(SHEET_SLS_URL),
         fetchCSV(SHEET_KORWIL_URL),
-        fetchCSVRaw(SHEET_ANOMALI_USAHA_URL),
-        fetchCSVRaw(SHEET_ANOMALI_KELUARGA_URL),
+        fetchCSVRaw(SHEET_ANOMALI_URL).catch(() => []),
         fetchCSVRaw(SHEET_STATUS_USAHA_URL),
         fetchCSVRaw(SHEET_STATUS_KELUARGA_URL),
         fetchCSVRaw(SHEET_UED_URL).catch(() => []),
         fetchCSVRaw(SHEET_CATATAN_URL).catch(() => []), // graceful
         fetchCSVRaw(SHEET_CATATAN_KELUARGA_URL).catch(() => []) // graceful
-    ]).then(([dbData, namaData, slsDataRaw, korwilData, rawAnomaliUsaha, rawAnomaliKeluarga, rawStatusUsaha, rawStatusKeluarga, uedDataRaw, rawCatatan, rawCatatanKel]) => {
+    ]).then(([dbData, namaData, slsDataRaw, korwilData, rawAnomali, rawStatusUsaha, rawStatusKeluarga, uedDataRaw, rawCatatan, rawCatatanKel]) => {
         rawDataDB = dbData;
         rawNamaData = namaData;
         rawSlsData = slsDataRaw;
         rawKorwilData = korwilData;
-        rawAnomaliUsahaRows = rawAnomaliUsaha;
-        rawAnomaliKeluargaRows = rawAnomaliKeluarga;
+        rawAnomaliRows = rawAnomali;
         rawStatusUsahaRows = rawStatusUsaha;
         rawStatusKeluargaRows = rawStatusKeluarga;
         rawUedRows = uedDataRaw || [];
@@ -598,9 +606,8 @@ function initApp() {
         catatanMap = parseCatatan(rawCatatanRows);
         catatanKeluargaMap = parseCatatanKeluarga(rawCatatanKeluargaRows);
         
-        console.log("Debug Anomaly Sheets Loaded:");
-        console.log("Raw Usaha rows count:", rawAnomaliUsahaRows ? rawAnomaliUsahaRows.length : 0);
-        console.log("Raw Keluarga rows count:", rawAnomaliKeluargaRows ? rawAnomaliKeluargaRows.length : 0);
+        console.log("Debug Anomaly Sheet Loaded:");
+        console.log("Raw Anomali rows count:", rawAnomaliRows ? rawAnomaliRows.length : 0);
         
         // Cell-based timestamps extraction
         let syncPendataanCol = 10;
@@ -610,8 +617,7 @@ function initApp() {
             if (foundIdx !== -1) syncPendataanCol = foundIdx;
         }
         const syncPendataan = extractCellTime(dbData.rawRows, 1, syncPendataanCol) || '-';
-        const syncAnomaliUsaha = extractCellTime(rawAnomaliUsahaRows, 1, 0, "dicetak:") || extractCellTime(rawAnomaliUsahaRows, 0, 0, "dicetak:") || '-';
-        const syncAnomaliKeluarga = extractCellTime(rawAnomaliKeluargaRows, 1, 0, "dicetak:") || extractCellTime(rawAnomaliKeluargaRows, 0, 0, "dicetak:") || '-';
+        const syncAnomali = extractCellTime(rawAnomaliRows, 1, 0, "dicetak:") || extractCellTime(rawAnomaliRows, 0, 0, "dicetak:") || '-';
         const syncStatusUsaha = extractCellTime(rawStatusUsahaRows, 1, 0, "diperbarui:") || '-';
         
         processAllData();
@@ -627,10 +633,10 @@ function initApp() {
         if (elPendataan) elPendataan.innerText = syncPendataan;
 
         const elAnomaliUsaha = document.getElementById('sync-anomali-usaha');
-        if (elAnomaliUsaha) elAnomaliUsaha.innerText = syncAnomaliUsaha;
+        if (elAnomaliUsaha) elAnomaliUsaha.innerText = syncAnomali;
 
         const elAnomaliKeluarga = document.getElementById('sync-anomali-keluarga');
-        if (elAnomaliKeluarga) elAnomaliKeluarga.innerText = syncAnomaliKeluarga;
+        if (elAnomaliKeluarga) elAnomaliKeluarga.innerText = syncAnomali;
 
         const elStatusUsaha = document.getElementById('sync-status-usaha');
         if (elStatusUsaha) elStatusUsaha.innerText = syncStatusUsaha;
@@ -935,18 +941,15 @@ function processAllData() {
     });
 
     // 5. Parse and Aggregate Anomalies
-    const listAnomaliUsaha = parseAnomaliRows(rawAnomaliUsahaRows);
-    const listAnomaliKeluarga = parseAnomaliRows(rawAnomaliKeluargaRows);
+    const { listAnomaliUsaha, listAnomaliKeluarga } = parseUnifiedAnomalySheet(rawAnomaliRows);
     
     console.log("Parsed Usaha count:", listAnomaliUsaha.length);
     console.log("Parsed Keluarga count:", listAnomaliKeluarga.length);
     
-    window.anomaliUsahaTime = extractCellTime(rawAnomaliUsahaRows, 1, 0, "dicetak:") || extractCellTime(rawAnomaliUsahaRows, 0, 0, "dicetak:");
-    window.anomaliKeluargaTime = extractCellTime(rawAnomaliKeluargaRows, 1, 0, "dicetak:") || extractCellTime(rawAnomaliKeluargaRows, 0, 0, "dicetak:");
+    const syncAnomaliTime = extractCellTime(rawAnomaliRows, 1, 0, "dicetak:") || extractCellTime(rawAnomaliRows, 0, 0, "dicetak:");
+    window.anomaliUsahaTime = syncAnomaliTime;
+    window.anomaliKeluargaTime = syncAnomaliTime;
     
-    listAnomaliUsaha.forEach(a => a.type = 'usaha');
-    listAnomaliKeluarga.forEach(a => a.type = 'keluarga');
-
     let usahaDone = 0;
     listAnomaliUsaha.forEach(a => { if (a.isDone) usahaDone++; });
     let keluargaDone = 0;
