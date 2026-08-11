@@ -1194,46 +1194,47 @@ body.light-theme {
 }
 .anomali-panel {
     border-radius: 14px;
-    /* Use clip instead of hidden so border-radius works without
-       breaking sticky/absolute children inside the panel */
-    overflow: clip;
     display: flex; flex-direction: column;
     min-height: 0; /* allows shrink inside grid cell */
-}
-.anomali-panel-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 16px; border-bottom: 1px solid var(--border-glass);
-    font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700;
-    color: var(--text-title); gap: 8px;
-    /* NO sticky — header is already "pinned" by flex layout.
-       The panel-body below is the only scrollable element,
-       so the header naturally stays at the top without sticky. */
-    position: relative;
+    overflow: hidden; /* clip children to rounded corners */
     background: var(--bg-glass-card);
-    border-left: 4px solid #3b82f6;
-    flex-shrink: 0; /* must not shrink */
-    z-index: 1;
+    border: 1px solid var(--border-glass);
+}
+/* Header sits as a normal flex child ABOVE the scroll body.
+   DO NOT use position:sticky here — sticky only works inside the scrolling
+   container itself, which is .anomali-panel-body, not .anomali-panel.
+   Because the body scrolls independently, the header never moves anyway. */
+.anomali-panel-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-glass-md);
+    font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700;
+    color: var(--text-title);
+    background: var(--bg-glass-card); /* matches panel bg — no bleed */
+    border-left: 3px solid #3b82f6;
+    flex-shrink: 0; /* never shrink; stay fixed at top */
+    min-height: 44px;
 }
 .anomali-panel-header-keluarga { border-left-color: #8b5cf6; }
 .anomali-panel-header i { font-size: 15px; }
-/* Panel body: the ONLY scrollable region — header stays above it */
+/* Body: the ONLY scroll container; flex:1 fills all remaining panel height */
 .anomali-panel-body {
-    overflow-y: auto;
     flex: 1;
     min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    display: flex; flex-direction: column; gap: 8px;
+    box-sizing: border-box;
 }
 
 /* Anomali Card */
 .anom-card {
-    background: var(--bg-glass-card); border: 1px solid var(--border-glass);
-    border-radius: 10px; padding: 8px 10px; border-left: 3px solid transparent;
+    background: var(--bg-glass-card); border: 1px solid var(--border-glass-md);
+    border-radius: 10px; padding: 10px 12px; border-left: 3px solid transparent;
     transition: transform 0.15s, box-shadow 0.15s; cursor: default;
-    flex-shrink: 0; /* prevent cards from collapsing vertically */
-    width: 100%; box-sizing: border-box;
+    flex-shrink: 0; /* never compress a card vertically */
+    min-width: 0; /* allow text to wrap */
 }
 .anom-card:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
 .anom-card-done { border-left-color: #10b981; }
