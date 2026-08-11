@@ -2076,6 +2076,7 @@ function buildAnomalyCardHTML(anom) {
 
 function renderAnomalyList(type, list) {
     const containerId = type === 'usaha' ? 'list-anomali-usaha' : 'list-anomali-keluarga';
+    const pageVar = type === 'usaha' ? 'anomaliPageUsaha' : 'anomaliPageKeluarga';
     const container = document.getElementById(containerId);
     if (!container) return;
 
@@ -2085,15 +2086,16 @@ function renderAnomalyList(type, list) {
 
     if (list.length === 0) {
         container.innerHTML = `<div class="anom-empty"><i class="ri-inbox-2-line"></i><p>Tidak ada data anomali</p></div>`;
-        container.scrollTop = 0; // reset scroll
+        container.scrollTop = 0;
         return;
     }
 
     container.innerHTML = sliced.map(a => buildAnomalyCardHTML(a)).join('') +
         (hasMore ? `<button class="anom-load-more" onclick="loadMoreAnomali('${type}')"><i class="ri-arrow-down-line"></i> Tampilkan lebih banyak (${list.length - sliced.length} lagi)</button>` : '');
-    
-    // Always scroll back to top when re-rendering (filter/search change)
-    container.scrollTop = 0;
+
+    if (page === 1) {
+        container.scrollTop = 0;
+    }
 }
 
 function loadMoreAnomali(type) {
