@@ -1495,7 +1495,8 @@ function renderPetugasTable() {
     const pList = Object.values(petugasData).sort((a, b) => b.totalTarget - a.totalTarget);
 
     pList.forEach(p => {
-        const pct = p.totalTarget > 0 ? ((p.approved / p.totalTarget) * 100).toFixed(1) : 0;
+        const periksaCount = (p.rejected || 0) + (p.revoked || 0) + (p.approved || 0) + (p.rejectedK || 0) + (p.editedK || 0) + (p.revokedK || 0) + (p.completedK || 0);
+        const pct = p.totalTarget > 0 ? ((periksaCount / p.totalTarget) * 100).toFixed(1) : 0;
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -1532,7 +1533,8 @@ function renderPetugasTable() {
 }
 
 function getSlsStatus(item) {
-    if (item.approved === item.total && item.total > 0) return 'APPROVED';
+    const periksaCount = (item.rejected || 0) + (item.revoked || 0) + (item.approved || 0) + (item.rejectedK || 0) + (item.editedK || 0) + (item.revokedK || 0) + (item.completedK || 0);
+    if (periksaCount === item.total && item.total > 0) return 'APPROVED';
     if (item.open === item.total) return 'OPEN';
     return 'PROGRESS';
 }
@@ -3424,7 +3426,8 @@ function renderHierarchyView() {
         const progressVal = total > 0 ? ((total - data.open - data.draft) / total * 100).toFixed(1) : "0.0";
         const pendataanVal = total > 0 ? ((total - data.open) / total * 100).toFixed(1) : "0.0";
         const submitVal = total > 0 ? ((total - data.open - data.draft) / total * 100).toFixed(1) : "0.0";
-        const periksaVal = total > 0 ? (((data.rejected + data.revoked + data.approved) / total * 100)).toFixed(1) : "0.0";
+        const periksaCount = (data.rejected || 0) + (data.revoked || 0) + (data.approved || 0) + (data.rejectedK || 0) + (data.editedK || 0) + (data.revokedK || 0) + (data.completedK || 0);
+        const periksaVal = total > 0 ? ((periksaCount / total * 100)).toFixed(1) : "0.0";
         
         const card = document.createElement('div');
         card.className = 'hierarchy-card';
@@ -3510,7 +3513,8 @@ function renderPmlList(kosekaName) {
         const progressVal = total > 0 ? ((total - data.open - data.draft) / total * 100).toFixed(1) : "0.0";
         const pendataanVal = total > 0 ? ((total - data.open) / total * 100).toFixed(1) : "0.0";
         const submitVal = total > 0 ? ((total - data.open - data.draft) / total * 100).toFixed(1) : "0.0";
-        const periksaVal = total > 0 ? (((data.rejected + data.revoked + data.approved) / total * 100)).toFixed(1) : "0.0";
+        const periksaCount = (data.rejected || 0) + (data.revoked || 0) + (data.approved || 0) + (data.rejectedK || 0) + (data.editedK || 0) + (data.revokedK || 0) + (data.completedK || 0);
+        const periksaVal = total > 0 ? ((periksaCount / total * 100)).toFixed(1) : "0.0";
 
         const card = document.createElement('div');
         card.className = 'hierarchy-card';
@@ -3590,7 +3594,8 @@ function renderPclList(pmlName) {
         const progressVal = total > 0 ? ((total - data.open - data.draft) / total * 100).toFixed(1) : "0.0";
         const pendataanVal = total > 0 ? ((total - data.open) / total * 100).toFixed(1) : "0.0";
         const submitVal = total > 0 ? ((total - data.open - data.draft) / total * 100).toFixed(1) : "0.0";
-        const periksaVal = total > 0 ? (((data.rejected + data.revoked + data.approved) / total * 100)).toFixed(1) : "0.0";
+        const periksaCount = (data.rejected || 0) + (data.revoked || 0) + (data.approved || 0) + (data.rejectedK || 0) + (data.editedK || 0) + (data.revokedK || 0) + (data.completedK || 0);
+        const periksaVal = total > 0 ? ((periksaCount / total * 100)).toFixed(1) : "0.0";
 
         const card = document.createElement('div');
         card.className = 'hierarchy-card';
@@ -3673,9 +3678,9 @@ function renderPclDetail(email) {
                     <strong class="value" title="${data.pml}">${data.pml}</strong>
                 </div>
                 <div class="detail-stat-card">
-                    <span class="label" title="Submitted + Approved">Penyelesaian Muatan</span>
+                    <span class="label" title="Assignment Tersubmit (Selain OPEN & DRAFT)">Penyelesaian Muatan</span>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
-                        <strong class="value" style="font-size:14px;">${data.approved + data.submitted} / ${total}</strong>
+                        <strong class="value" style="font-size:14px;">${total - data.open - data.draft} / ${total}</strong>
                         <span class="hierarchy-progress-percent" style="font-size:12px; color:var(--color-approved);">${progressVal}%</span>
                     </div>
                     <div class="hierarchy-progress-bar" style="margin-top:6px;">
